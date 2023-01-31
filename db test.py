@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import numpy as np
 import pyrebase
-import random, string, pyperclip as cb, pytz
+import random, string, pyperclip as cb, pytz, sys
 from firebase_admin import firestore, credentials, storage
 import firebase_admin
 import cv2, pygame
@@ -14,25 +14,24 @@ import io
 # #
 cred = credentials.Certificate("serviceAccountKey.json")
 # firebase_admin.initialize_app(cred)
-
 app = firebase_admin.initialize_app(cred, {'storageBucket': 'sce-e499f.appspot.com'})
 bucket = storage.bucket()
 blob = bucket.get_blob('Chats/Tie-Dye.png')
-print(d)
-img = uo(d).read()
-img_file = io.BytesIO(img)
+# print(d)
+# img = uo(d).read()
+# img_file = io.BytesIO(img)
 
 # a = pygame.image.fromstring(d, (500, 500), 'RGBA')
 # print(a)
 # arr = np.frombuffer(blob.download_as_string(), np.uint8)
 #
-pygame.init()
-screen = pygame.display.set_mode((400, 400))
-pygame.display.set_caption("SCE")
-screen_tb = pygame.image.load(img_file)
-screen.blit(screen_tb, (0, 0))
-pygame.display.flip()
-# cv2.waitKey(0)
+# pygame.init()
+# screen = pygame.display.set_mode((400, 400))
+# pygame.display.set_caption("SCE")
+# screen_tb = pygame.image.load(img_file)
+# screen.blit(screen_tb, (0, 0))
+# pygame.display.flip()
+# # cv2.waitKey(0)
 
 
 
@@ -42,6 +41,63 @@ pygame.display.flip()
 # # # messages = ['a', 'b', 'd', 'j']
 # # #
 db = firestore.client()
+a = db.collection('servers').document('881283566').collection('chat_rooms').document('')
+b = a.get()
+b = b.to_dict()
+# print(b)
+messages = b['messages']
+messageID = '113'
+# print(messages)
+for m in messages:
+    if m["msgID"] == messageID:
+        # print(m)
+        # if (messages[m]["user"] in participant) or (participant == self.owner) or (participant in self.admins and not (messages[m]["user"] in self.admins)):
+        # print([messages[m]])
+        print ("deleted successfully")
+
+
+# print(ms)
+# for m in range(len(ms)):
+#     # if ms[m]['ID'] == msgID:
+#     #     del ms[m]
+#     #     b['messages'] = ms
+#     #     a.set(b)
+#     msgID = '11111'
+#     msg = 'pls work'
+#     messageObject = {'user': 'alongaribi123@gmail.com', 'data': msg, 'time': datetime.now(pytz.timezone('Asia/Jerusalem')), 'type': 'text'}
+#     a.update({u'messages': messageObject})
+#
+#     break
+# print(ms)
+
+# characters = string.ascii_letters + string.digits
+# isExist = True
+# # msgID = ''.join(random.choice(characters) for i in range(random.randrange(255)))
+# ID = 110
+# msgID = ''
+# while isExist:
+#     a = db.collection('servers').document('881283566').get()
+#     ID += 1
+#     msgID = str(ID)
+#     if a.exists:
+#         a = a.to_dict()
+#         messages = a['messages']
+#         print(messages)
+#         for message in messages:
+#             if message['ID'] == msgID:
+#                 isExist = True
+#                 break
+#             else:
+#                 isExist = False
+#
+# print(msgID)
+
+# messages = self.db.get().to_dict()['messages']
+# if participant in self.participants:
+
+
+# print("HI:" + msgID)
+# self.db.where("")
 # # # # data = {'username':username, 'password':password, 'messages':messages}
 # # # # email = 'alongaribi123@gmail.com'
 # # # # db.collection('users').document(email).set(data)
