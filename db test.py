@@ -40,21 +40,35 @@ blob = bucket.get_blob('Chats/Tie-Dye.png')
 # # # password = md5('garibi554'.encode()).hexdigest()
 # # # messages = ['a', 'b', 'd', 'j']
 # # #
-db = firestore.client()
-a = db.collection('servers').document('881283566').collection('chat_rooms').document('')
-b = a.get()
-b = b.to_dict()
-# print(b)
-messages = b['messages']
-messageID = '113'
-# print(messages)
-for m in messages:
-    if m["msgID"] == messageID:
-        # print(m)
-        # if (messages[m]["user"] in participant) or (participant == self.owner) or (participant in self.admins and not (messages[m]["user"] in self.admins)):
-        # print([messages[m]])
-        print ("deleted successfully")
 
+# a = db.collection('servers').document('881283566').collection('chat_rooms').document('')
+# b = a.get()
+# b = b.to_dict()
+# print(b)
+# messages = b['messages']
+# messageID = '113'
+# # print(messages)
+# for m in messages:
+#     if m["msgID"] == messageID:
+#         # print(m)
+#         # if (messages[m]["user"] in participant) or (participant == self.owner) or (participant in self.admins and not (messages[m]["user"] in self.admins)):
+#         # print([messages[m]])
+#         print ("deleted successfully")
+
+global db
+
+def update_array():
+    email = 'alongaribi24@gmail.com'
+    a = db.collection('servers').document('881283566')
+    b = a.get().to_dict()
+    print(b)
+    a.update({u'participants': firestore.ArrayUnion([f'{email}'])})
+    print(a.get().to_dict())
+    # locRoom.update({u'messages': firestore.ArrayUnion([messageObject])})
+
+if __name__ == '__main__':
+    db = firestore.client()
+    update_array()
 
 # print(ms)
 # for m in range(len(ms)):
@@ -166,4 +180,3 @@ for m in messages:
 # firebase = pyrebase.initilize_app(firebaseConfig)
 # storage = firebase.storage()
 # storage.child('images/add_friend_screen.png').put('screens/add_friends.png')
-

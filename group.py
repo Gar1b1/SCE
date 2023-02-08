@@ -4,27 +4,35 @@ from firebase_admin import firestore, storage
 
 class Group:
     def __init__(self, owner, isGhost, dbID, fb):
-        self.owner = owner
         self.isGhost = isGhost
         self.participants = [owner]
         self.TextChatRooms = []
         self.VoiceChatRooms = []
         self.dbID = dbID
         self.db = fb.collection('servers').document(dbID)
-        self.admins = [owner]
         self.timestamp_loc = pytz.timezone('Asia/Jerusalem')
         self.storage = storage.bucket()
 
+    def (self, group_id):
+        self.db = fb.collection('servers').document(group_id)
+
+
     def add_participants(self, adder, participant):
-        if participant in self.participants:
+        admins = self.__get_data('admins')
+        participants = self.__get_data('participants')
+        if participant in participants:
             return 'participant already inside'
-        if adder in self.admins:
-            self.participants.append(participant)
+        if adder in admins:
+            participantObj = {'email': participant, 'isAdmin': False, 'isOwner': False}
+            self.db.update({u'participants': firestore.ArrayUnion([participant])})
             return 'participant added'
         return "don't have permission"
 
     def add_admin(self, adder, participant):
-        if participant in self.admins:
+        admins = self.__get_data('admins')
+        participants = self.__get_data('participants')
+
+        if participant in admins:
             return 'participant already admin'
         if adder == self.owner:
             self.admins.append(participant)
@@ -119,3 +127,9 @@ class Group:
         if msgID == '':
             return 'ERROR'
         return msgID
+
+    def __get_data(self, type):
+        db = self.db.get()
+        if not db.exists():
+            return 'notFound'
+        return db.to_dict(type)
