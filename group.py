@@ -13,8 +13,8 @@ class Group:
         self.timestamp_loc = pytz.timezone('Asia/Jerusalem')
         self.storage = storage.bucket()
 
-    def (self, group_id):
-        self.db = fb.collection('servers').document(group_id)
+    # def (self, group_id):
+    #     self.db = fb.collection('servers').document(group_id)
 
 
     def add_participants(self, adder, participant):
