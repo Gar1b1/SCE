@@ -1,147 +1,162 @@
-import cv2, time, socket, ctypes
-import sounddevice as sd
-from scipy.io.wavfile import write
-from threading import Thread
-import PIL.Image as P
-import io
-import numpy
-import firebase_admin
 from tkinter import *
-import hashlib
+import re
+# create a new tkinter window
 
-global server, username, current_chat, graphic_thread, screen, current_screen, window
-first = True
-current_chat = 'i'
-username = 'b'
-toUseCamera = True
-toUseMicrophone = True
-ip = '127.0.0.1'
-port = 1234
-# user32 = ctypes.windll.user32
-# screen_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
-screen_size = (1920, 1080)
-colors = {'yellow': (246, 255, 0), 'blue': (0, 0, 255), 'red': (255, 0, 0),
-          'green': (0, 255, 0), 'black': (0, 0, 0), 'white': (255, 255, 255),
-          'orange': (255, 125, 0), 'pink': (200, 50, 144), 'purple': (112, 9, 222)}
+
 imgPath = "images/"
 backgroundColor = "#040030"
+secondColor = "#76E6CB"
+screenSize = (800, 600)
 
+window = Tk()
 
-def manage_camera():
-    global toUseCamera
-    webcam = cv2.VideoCapture(0)
-    webcam.set(3, 640)
-    webcam.set(4, 480)
-    print(webcam.get(3), webcam.get(4))
-    while toUseCamera:
-        print(True)
-        ret, frame = webcam.read()
-        cv2.imwrite('my_webcam.png', frame)
-        with open('my_webcam.png', 'rb') as img:
-            img_data = img.read()
-            print(len(img_data))
-            server.send(f'{current_chat}|camera|{username}|'.encode() + img_data + '~'.encode())
+XBTNImage = PhotoImage(file=f"{imgPath}xButton.png")
+homeBTNImage = PhotoImage(file=f"{imgPath}homeButton.png")
+registerBTNImage = PhotoImage(file=f"{imgPath}registerButton.png")
+loginBTNImage = PhotoImage(file=f"{imgPath}loginButton.png")
+smallLoginImage = PhotoImage(file=f"{imgPath}smallLogin.png")
+smallRegisterImage = PhotoImage(file=f"{imgPath}smallRegister.png")
 
-    webcam.release()
+global emailEntry, passwordEntry, usernameEntry
 
+# def createHomewindow():
 
-def manage_microphone():
-    pass
+def register():
+    global emailEntry, passwordEntry, usernameEntry
+    username = usernameEntry.get()
+    email = emailEntry.get()
+    password = passwordEntry.get()
+    passwordValidate = checkPassword(password)
+    print('register')
+    if passwordValidate == "valid":
+        loadScreen("login")
+        print("username: " + username + " email: " + email + " password: " + password)
+    else:
+        print(f"password: {password} is not valid because it is {passwordValidate}")
 
+def checkPassword(password):
+    if len(password) < 6:
+        return "tooShort"
+    elif re.search('[0-9]', password) is None:
+        return "noDigits"
+    elif re.search('[a-z]', password) is None and re.search('[A-Z]', password) is None:
+        return "noLetters"
+    else:
+        return "valid"
 
-def init_screen():
-    global screen, font, current_screen, window
-    window = Tk()
-    load_screen_first('login')
+def login():
+    global emailEntry, passwordEntry
+    email = emailEntry.get()
+    password = passwordEntry.get()
+    print('login')
 
-
-def load_screen_first(screen_img):
-    global current_screen, first, window
+def clearScreen():
     for widget in window.winfo_children():
         widget.destroy()
-    first = True
-    current_screen = screen_img
-    window.geometry("1280x720")
+
+def loadRegisterScreen():
+    loadScreen("register")
+
+def loadLogingScreen():
+    loadScreen("login")
+
+def loadScreen(screen):
+    global window, emailEntry, passwordEntry, usernameEntry
+
+    clearScreen()
+
+    winWidth = window.winfo_width()
+    winHeight = window.winfo_height()
+    titleWidth = 1000
+
+    titleX = winWidth / 2 - titleWidth / 2
+    emailY = 1.7 * winHeight / 4
+    passwordY = emailY + 200
+    labelX = winWidth / 4
+
+    submitX = winWidth / 3 - 100
+    submitY = passwordY + 150
+    homeButton = Button(window, image=homeBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=loadHomeScreen)
+    homeButton.place(x=0, y=0)
+    xButton = Button(window, image=XBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=close)
+    xButton.pack(anchor=NE)
+
+    if screen == "register" or screen == "login":
+
+        emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 45, "bold"), text="Email:")
+        emailLabel.place(x=labelX, y=emailY - 75)
+
+        emailEntry = Entry(window, bg=secondColor, font=("Assistant", 45, "bold"))
+        emailEntry.place(x=labelX, y=emailY, width=int(winWidth / 3))
+        passwordLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 45, "bold"), text="Password:")
+        passwordLabel.place(x=labelX, y=passwordY - 75)
+        passwordEntry = Entry(window, bg=secondColor, font=("Assistant", 45, "bold"), show="*")
+        passwordEntry.place(x=labelX, y=passwordY, width=int(winWidth / 3))
+
+        if screen == "register":
+            print('registerrrrrrrrrrrrrrrrrrr')
+
+            usernameEntry = Entry(window, bg=secondColor, font=("Assistant", 45, "bold"))
+            usernameEntry.place(x=labelX, y=emailY - 200, width=int(winWidth / 3))
+            usernameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 45, "bold"), text="Username:")
+            usernameLabel.place(x=labelX, y=emailY - 200 - 75)
+            titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 125, "bold"), text="register")
+            submitButton = Button(window, image=registerBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=register)
+            getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 35, "bold"), text="Already have account?")
+            getOtherButton = Button(window, image=smallLoginImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=loadLogingScreen)
+
+        else:
+            print('login')
+            titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 125, "bold"), text="login")
+            submitButton = Button(window, image=loginBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=register)
+            getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 35, "bold"), text="Still don't have account?")
+            getOtherButton = Button(window, image=smallRegisterImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=loadRegisterScreen)
+        print(submitX)
+        print()
+        submitButton.place(x=submitX, y=submitY)
+        titleLabel.place(x=titleX, y=50, width=titleWidth)
+        getOtherLabel.place(x=submitX + int(winWidth/2.5), y=submitY - 60)
+        getOtherButton.place(x=submitX + int(winWidth/2.5), y=submitY)
+
+    window.update()
+
+
+
+
+
+
+
+def updateSize():
+    global screenSize
+    close()
+    screenSize = (screenSize[0] + 100, screenSize[1] + 100)
+    mainG()
+
+def close():
+    global window
+    window.destroy()
+
+def loadHomeScreen():
+    global window, imgPath
+    print('loading')
+
+def mainG():
+    global screenSize
+    global window
+
+    window.resizable(False, False)
+    window.attributes('-fullscreen', True)
+    # window.geometry("1280x720")
+    window.update()
+    print(str(window.winfo_width()) + " " + str(window.winfo_height()))
+
     window['background'] = backgroundColor
-    homeBTNImage = PhotoImage(file=f"{imgPath}homeBTN.png")
-    img_label = Label(image=homeBTNImage)
-    homeButton = Button(window, image=homeBTNImage, bd=0, highlightthickness=0, c).pack(anchor=SW)
+
+    loadScreen("register")
+
     window.mainloop()
-    # for widget in window.winfo_children():
-    #     widget.destroy()
-    # window.mainloop()
-    Tk.destroy()
-
-
-def load_screen(screen_img):
-    global current_screen, first
-    current_screen = screen_img
-    window.mainloop()
-
-
-def login(email, password):
-    password = hashlib.md5(password.encode()).hexdigest()
-    server.send(f'login|{email}|{password}'.encode())
-
-
-def handle_graphic():
-    global first
-    init_screen()
-    while True:
-        if current_screen == 'login':
-            if first:
-                print(True)
-                typed_email = ''
-                typed_password = ''
-                ts_password = ''
-                first = False
-
-def main():
-    global server, graphic_thread
-    server = socket.socket()
-    # server.connect((ip, port))
-
-    string = ''
-    i = 0
-    while i < 1000000:
-        i += 1
-        print
-        # print(i)
-        string += 'a'
-    print(len(string))
-
-    string += string
-    string += string
-    string += string
-
-    # server.send(string.encode())
-    print('sent')
-    graphic_thread = Thread(target=handle_graphic())
-    graphic_thread.start()
-    # # manage_camera()
-
-    graphic_thread.join()
 
 
 if __name__ == '__main__':
-    main()
+    mainG()
 
-# create a button widget
-button = Button(window, text="Click me!")
-window.geometry("800x600")
-homeBTNImage = PhotoImage(file=f"{imgPath}homeBTN.png")
-img_label = Label(image=homeBTNImage)
-
-homeButton = Button(window, image=homeBTNImage, bd=0, highlightthickness=0).pack(anchor=SW)
-
-# limg.pack()
-
-# calculate the desired size of the button as half of the window size
-button_width = int(window.winfo_width() * 0.5)
-button_height = int(window.winfo_height() * 0.5)
-
-# configure the size and position of the button
-button.config(width=button_width, height=button_height)
-button.place(relx=0.25, rely=0.25)
-
-# run the main event loop
