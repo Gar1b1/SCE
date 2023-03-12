@@ -1,93 +1,157 @@
 import socket, firebase_admin, random, string, pyperclip as cb
 import time
-from threading import Thread
+from threading import Thread, local
 from datetime import datetime
 from pytz import timezone
+from cryptography.fernet import Fernet
 
-from firebase_admin import firestore
-from firebase_admin import credentials
-from hashlib import md5
-import os
-
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+# encrypt
+fKey = open("key.txt", "rb")
+key = fKey.read()
+cipher = Fernet(key)
+fKey.close()
 
 TZ = timezone('Asia/Jerusalem')
-server_address = ('127.0.0.1', 1234)
+server_address = ('127.0.0.1', 3339)
 sockets_threads = []
 
-def handle_client(socket):
-    bd = socket.recv(10000000000)
-    data = bd.decode("utf-8")
-    print(data)
-    print(str(len(data)))
-    time.sleep(0.01)
+local_data = local()
+
+def handle_client(sock):
+    while True:
+        bd = sock.recv(1024)
+        bd = cipher.decrypt(bd)
+
+        data = bd.decode("utf-8")
+
+        print(data)
+        print(str(len(data)))
+        try:
+            if "&" in data:
+                s_data = data.split('&')
+                print(s_data)
+                data = s_data[0]
+                print(data)
+                s_data = data.split('|')
+                print(s_data)
+                sock.send(cipher.encrypt("got it".encode()))
+                handle_requests(s_data)
+            else:
+                sock.send(cipher.encrypt("error".encode()))
+        except:
+            print("error")
+            sock.send(cipher.encrypt("error".encode()))
+        time.sleep(0.01)
 
     s = data.split('|')
     if s[0] == 'login':
         print(True)
 
+
+def handle_requests(data):
+    request_type = data[0]
+    if request_type == "login":
+        email = data[1]
+        password = data[2]
+        reply = login(email, password)
+        is_error = reply[0]
+        return message_build(request_type, is_error)
+
+    if request_type == "register":
+        username = data[1]
+        email = data[2]
+        password = data[3]
+        reply = register(username, email, password)
+        is_new_user = reply[0]
+        if is_new_user:
+            user = reply[2]
+        else:
+            is_error = True
+    if request_type == "exit":
+        reply = exit()
+    sock.send("ERR")
+    return
+
+    sock.send(reply[1])
+    if is_new_user:
+        return user
+    elif is_error:
+        return "ERROR"
+
+def exit():
+    return
+
+def message_build(request_type, problem):
+    toReturn = f"{request_type}|{ok}"
+    if problem:
+        toReturn += problem
+    return toReturn
+
 def send_message(sock, type, **values):
-    match type:
-        case "Hello":
-            sock.send('Hello, you are in'.encode())
-        case _:
-            sock.send('OK'.encode())
+    # match type:
+    #     case "Hello":
+    #         sock.send('Hello, you are in'.encode())
+    #     case _:
+    #         sock.send('OK'.encode())
+    pass
 
 def handle_message(message, **values):
     message = message.decode('utf-8')
     split_message = message.split('|')
     type = split_message[0]
-    match type:
-        case 'login':
-            email = message[1]
-            password = message[2]
-            login(email, password)
-        case 'register':
-            email = message[1]
-            password = message[2]
-            username = message[3]
-            register(email, username, password)
-        case 'create_server':
-            user = message[1]
-            server_name = message[2]
-            create_server(user, server_name)
-        case 'join_server':
-            user = message[1]
-            serverID = message[2]
-            join_server(user, serverID)
-        case 'add_admin':
-            user = message[1]
-            serverID = message[2]
-            newAdminID = message[3]
-            add_admin(user, serverID, newAdminID)
-        case 'add_message':
-            user = message[1]
-            serverID = message[2]
-            chatID = message[3]
-            msg = message[4]
-            add_message(serverID, chatID, user, msg)
-        case _:
-            return 'ERROR'
+    # match type:
+    #     case 'login':
+    #         email = message[1]
+    #         password = message[2]
+    #         login(email, password)
+    #     case 'register':
+    #         email = message[1]
+    #         password = message[2]
+    #         username = message[3]
+    #         register(email, username, password)
+    #     case 'create_server':
+    #         user = message[1]
+    #         server_name = message[2]
+    #         create_server(user, server_name)
+    #     case 'join_server':
+    #         user = message[1]
+    #         serverID = message[2]
+    #         join_server(user, serverID)
+    #     case 'add_admin':
+    #         user = message[1]
+    #         serverID = message[2]
+    #         newAdminID = message[3]
+    #         add_admin(user, serverID, newAdminID)
+    #     case 'add_message':
+    #         user = message[1]
+    #         serverID = message[2]
+    #         chatID = message[3]
+    #         msg = message[4]
+    #         add_message(serverID, chatID, user, msg)
+    #     case _:
+    #         return 'ERROR'
 
 def login(email, password):
     user = db.collection('users').document(email).get()
     if user.exists:
-        user = user.to_dict()
-        print(user)
-        if user['password'] == password:
-            print(user)
-            return user
-    return 'email or password is incorrect'
+        userDict = user.to_dict()
+        print(userDict)
+        password = hashlib.md5(password.encode()).hexdigest()
+        if userDict['password'] == password:
+            print(userDict)
+            return True
+            local.user = user
+    return False
 
-def register(email, username, password):
+def register(username, email, password):
     user = db.collection('users').document(email).get()
     if user.exists:
-        return 'email already registered'
+        return False
+    password = hashlib.md5(password.encode()).hexdigest()
     data = {'email': email, 'username': username, 'password': password, 'friends': [], 'servers': []}
     db.collection('users').document(email).set(data)
+    user = db.collection('users').document(email).get()
+    return True
 
 def create_server(user, name):
     i = 0
