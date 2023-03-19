@@ -203,7 +203,7 @@ def updateSize():
 
 def close():
     global window
-    handle_client("close")
+    # handle_client("close")
     window.destroy()
 
 def mainG():
