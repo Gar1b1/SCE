@@ -1,7 +1,6 @@
 import contextvars
 import socket, firebase_admin, random, string, pyperclip as cb
-import threading
-import time
+import time, hashlib, re
 from threading import Thread, local
 from multiprocessing import Process
 from datetime import datetime
@@ -31,11 +30,98 @@ db = firestore.client()
 TZ = timezone('Asia/Jerusalem')
 server_address = ('127.0.0.1', 3339)
 sockets_threads = []
+db = ""
+firestore = ""
 
-user = contextvars.ContextVar("user", default="user")
 
-def handle_client(sock, i):
-    global user
+class ClientHandler:
+    def __init__(self, sock: socket):
+        self.user = None
+        self.sock = sock
+
+    def run(self):
+        while True:
+            self._handle_recv()
+
+    def _handle_recv(self):
+        bd = self.sock.recv(1024)
+        bd = cipher.decrypt(bd)
+        data = bd.decode("utf-8")
+        self._handle_messages(data)
+    def _handle_messages(self, data: str):
+        try:
+            if "&" in data:
+                s_data = data.split('&')
+                print(s_data)
+                data = s_data[0]
+                print(data)
+                s_data = data.split('|')
+                print(s_data)
+                self.sock.send(cipher.encrypt("got it".encode()))
+                handle_requests(s_data)
+            else:
+                self.sock.send(cipher.encrypt("error".encode()))
+        except:
+            print("error")
+            self.sock.send(cipher.encrypt("error".encode()))
+        time.sleep(0.01)
+
+    def _handle_requestes(self, data: list):
+        if data[0] == "login":
+            email = data[1]
+            password = data[2]
+            self._handle_sends(data[0], self._login(email, password), email)
+        elif data[0] == "register":
+            self._handle_sends(data[0], self._register(email=data[2], password=data[3], username=data[1]), data[2])
+
+    def _login(self, email, password):
+        user = db.collection('users').document(email).get()
+        if user.exists:
+            userDict = user.to_dict()
+            print(userDict)
+            password = hashlib.md5(password.encode()).hexdigest()
+            if userDict['password'] == password:
+                print(userDict)
+                self.user = user
+                return True
+        return False
+
+    def _register(self, email, username, password):
+        user = db.collection('users').document(email).get()
+        if user.exists:
+            return False
+        is_valid = self._check_is_password_valid(password)
+        password = hashlib.md5(password.encode()).hexdigest()
+        data = {'email': email, 'username': username, 'password': password, 'friends': [], 'servers': []}
+        db.collection('users').document(email).set(data)
+        self.user = db.collection('users').document(email).get()
+        return True
+
+    def _is_password_valid(self, password):
+        if len(password) < 6:
+            return "tooShort"
+        elif re.search('[0-9]', password) is None:
+            return "noDigits"
+        elif re.search('[a-z]', password) is None and re.search('[A-Z]', password) is None:
+            return "noLetters"
+        else:
+            return "valid"
+
+    def _check_is_password_valid(self, password):
+        cp = self._is_password_valid(password)
+        return True if cp == "valid" else cp
+
+    def load_chats(self):
+        if self.user != None:
+            return "PASS"
+        else:
+            return "ERR"
+
+    def _handle_sends(self, type, *params):
+        if type == "login":
+            self.sock.send("logged in " + ("successfully" if params[0] else "failed") + f" email is{params[1]}")
+        elif type == "register":
+            self.sock.send("registered " + ("successfully" if params[0] else "failed") + f" email is{params[1]}")
 
     while True:
         bd = sock.recv(1024)
@@ -73,10 +159,10 @@ def handle_requests(data):
     if request_type == "login":
         email = data[1]
         password = data[2]
-        isClear = login(email, password)
-        print(f"is clear: {isClear}")
-        if isClear:
-            return "login is working"
+        reply = login(email, password)
+        is_error = reply[0]
+        # return message_build(request_type, is_error)
+
     if request_type == "register":
         username = data[1]
         email = data[2]
@@ -89,7 +175,7 @@ def handle_requests(data):
             return "yay its works"
     if request_type == "exit":
         reply = exit()
-    sock.send("ERR")
+    # sock.send("ERR")
     return
 
     sock.send(reply[1])
@@ -101,11 +187,11 @@ def handle_requests(data):
 def exit():
     return
 
-def message_build(request_type, problem):
-    toReturn = f"{request_type}|{ok}"
-    if problem:
-        toReturn += problem
-    return toReturn
+# def message_build(request_type, problem):
+#     toReturn = f"{request_type}|{ok}"
+#     if problem:
+#         toReturn += problem
+#     return toReturn
 
 def send_message(sock, type, **values):
     # match type:
