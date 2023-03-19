@@ -75,8 +75,8 @@ def handle_sends(*arguments):
     print(toSend)
     encrypted_message = cipher.encrypt(toSend.encode())
     sock.send(encrypted_message)
-    print(encrypted_message)
-    waitToConfim()
+    print(f'{encrypted_message =}')
+    # waitToConfim()
 
 def waitToConfim():
     enc_message = sock.recv(1024)
