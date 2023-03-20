@@ -1,6 +1,6 @@
 import contextvars
 import socket, firebase_admin, random, string, pyperclip as cb
-import time, hashlib, re
+import time, hashlib, re, json
 from threading import Thread
 from datetime import datetime
 from pytz import timezone
@@ -60,19 +60,23 @@ class ClientHandler:
                 print(s_data)
                 self._handle_requests(s_data)
             else:
-                self._handle_messages("error", "message received unclearly")
+                self._handle_sends("error", "message received unclearly")
         except:
             print("error")
             self.sock.send(cipher.encrypt("error".encode()))
         time.sleep(0.01)
 
     def _handle_requests(self, data: list):
+        print("here??????????????????????????????????")
         if data[0] == "login":
             self._handle_sends(data[0], self._login(email=data[1], password=data[2]), data[1])
         elif data[0] == "register":
             self._handle_sends(data[0], self._register(email=data[2], password=data[3], username=data[1]), data[2])
-        if data[0] == "home":
-            self._handle_messages(data[0], self._load_servers())
+        if data[0] == "getServers":
+            self._handle_sends(data[0], self._get_servers())
+        if data[0] == "loadServer":
+            print("yesssssssssssssssssssssssssssssssssssssssssssss")
+            self._handle_sends(data[0], self._load_server_rooms(server=data[1]))
 
 
     def _login(self, email: str, password: str) -> bool:
@@ -100,6 +104,14 @@ class ClientHandler:
         db.collection('users').document(email).set(data)
         self.user = db.collection('users').document(email).get()
         return True
+    
+    def _load_server_rooms(self, server: str) -> list:
+        print("here!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        rooms = db.collection("servers").document(server).collection("rooms").get()
+        for room in rooms:
+            print(room.to_dict)
+        print(f"{rooms=}")
+        return(rooms)
 
     def _is_password_valid(self, password: str) -> str:
         if len(password) < 6:
@@ -115,29 +127,34 @@ class ClientHandler:
         cp = self._is_password_valid(password)
         return True if cp == "valid" else cp
 
-    def _load_servers(self) -> bool:
+    def _get_servers(self) -> bool:
         if self.user != None:
             serversID = self.user.to_dict()["servers"]
-            serversNames = []
+            serversDict = {}
             for serverID in serversID:
                 s = db.collection('servers').document(serverID).get()
                 if s.exists:
-                    serversNames.append(s.to_dict()["name"])
+                    serversDict[serverID] = (s.to_dict()["name"])
+            return serversDict
         else:
             return "ERR"
 
-    def _handle_sends(self, type: str, *params):
+    def _handle_sends(self, type: str, *params) -> bool:
         print(f'{type=} | {params=}')
         match type:
             case "login":
                 toSend = "loggedin|" + ("successfully" if params[0] else "failed") + f"|{params[1]}"
             case "register":
-                toSend= "registered| " + ("successfully" if params[0] else "failed") + f"|{params[1]}"
+                toSend = "registered| " + ("successfully" if params[0] else "failed") + f"|{params[1]}"
+            case "getServers":
+                toSend = f"servers|{json.dumps(params[0])}"
+            case "loadServer":
+                toSend = f"rooms|{json.dumps[params[0]]}"
             case "error":
                 toSend = f"error|{params[0]}"
             case _:
                 return False
-        self.sock.send(toSend.encode())
+        self.sock.send(cipher.encrypt(toSend.encode()))
         print(toSend)
         return True
 

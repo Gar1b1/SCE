@@ -1,7 +1,8 @@
 from tkinter import *
-import re, socket
+import re, socket, platform, time, json
 from threading import Thread
 from cryptography.fernet import Fernet
+from plyer import notification
 
 # encrypt
 fkey = open("key.txt", "rb")
@@ -41,11 +42,11 @@ def register():
     email = emailEntry.get()
     password = passwordEntry.get()
     passwordValidate = checkPassword(password)
-    print('register')
+    # print('register')
     if passwordValidate == "valid":
         loadScreen("login")
         userData = f"username: {username} email: {email} password: {password}"
-        print(userData)
+        # print(userData)
         handle_sends("register", username, email, password)
     else:
         print(f"password: {password} is not valid because it is {passwordValidate}")
@@ -65,23 +66,39 @@ def login():
     email = emailEntry.get()
     password = passwordEntry.get()
     userData = f"email: {email} password: {password}"
-    handle_sends("login", email, password)
+    sec = handle_sends("login", email, password).split("|")[1] == "successfully"
+    print(f"{sec=}")
+
+    if sec:
+        loadScreen("home")
+        notify("login successfully", "loged in successfully")
+    else:
+        notify("login failed","user params are inncorect")
     print(userData)
     print('login')
 
+def notify(title1, message1):
+    notification.notify(
+        title=title1,
+        message=message1,
+        timeout=10,
+        app_icon="images/app_logo.ico"
+    )
+    time.sleep(0.2)
+    
+
 def handle_sends(*arguments):
-    print("-----------------------------------------------")
     toSend ="|".join(arguments) + "&"
     print(toSend)
     encrypted_message = cipher.encrypt(toSend.encode())
     sock.send(encrypted_message)
-    print(f'{encrypted_message =}')
-    # waitToConfim()
+    # print(f'{encrypted_message =}')
+    return waitToConfim()
 
 def waitToConfim():
     enc_message = sock.recv(1024)
     message = cipher.decrypt(enc_message).decode()
-    print(f"the message is {message}")
+    return message
 
 def clearScreen():
     for widget in window.winfo_children():
@@ -95,7 +112,7 @@ def show_password():
         passwordEntry.config(show='*')
 
 def loadServer(server):
-    print(server)
+    dataOfMessages = handle_sends("loadServer", server)
 
 def temp(a):
     return a
@@ -107,14 +124,17 @@ def home_screen():
     i = 0
     dm = Button(window, image=dmButtonImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("dm"))
     dm.place(x=lefSideX, y=dmY)
+    servers = handle_sends("getServers").split("|")[1]
+    print("-----------------------------------------------")
+    servers = json.loads(servers)
+    print(f"{servers=}")
     serversButtons = []
     for server in servers:
+        print(server)
         serversButtons.append(Button(window, text=servers[server], bg=backgroundColor, fg=secondColor, font=("Assistant", 25, "bold"), command=lambda a=server: loadServer(a)))
         serversButtons[i].place(x=lefSideX, y=serversY + 100 * i)
         i += 1
-        print(server)
 
-    print(serversButtons)
 
 def login_register_screens(screen):
     global emailEntry, usernameEntry, passwordEntry
@@ -170,7 +190,7 @@ def login_register_screens(screen):
         getOtherButton = Button(window, image=smallRegisterImage, bd=0, highlightthickness=0,
                                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("register"))
 
-    print(submitX)
+    # print(submitX)
     submitButton.place(x=submitX, y=submitY)
     titleLabel.place(x=titleX, y=50, width=titleWidth)
     getOtherLabel.place(x=submitX + int(winWidth / 2.5), y=submitY - 60)
@@ -192,7 +212,6 @@ def loadScreen(screen):
         login_register_screens(screen)
     elif screen == "home":
         home_screen()
-    print('here')
     window.update()
 
 def updateSize():
@@ -213,17 +232,19 @@ def mainG():
     sock = socket.socket()
     sock.connect((ip, port))
 
-    window.resizable(False, False)
+    # window.resizable(True, True)
     window.attributes('-fullscreen', True)
-    # window.geometry("1280x720")
+    window.geometry("1920x1080")
     window.update()
-    print(str(window.winfo_width()) + " " + str(window.winfo_height()))
+    # print(str(window.winfo_width()) + " " + str(window.winfo_height()))
 
     window['background'] = backgroundColor
-
     loadScreen("register")
+    # graphic_t = Thread(target=loadScreen, args=("register",))
+    # graphic_t.start()
 
     window.mainloop()
+    # graphic_t.join()
 
 if __name__ == '__main__':
     mainG()
