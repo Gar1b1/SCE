@@ -3,7 +3,11 @@ import re, socket, platform, time, json
 from PIL import Image, ImageTk
 from threading import Thread
 from cryptography.fernet import Fernet
-from plyer import notification
+from plyer import notification as nt
+import ctypes
+# from win11toast import toast
+# import win11toast
+from winotify import Notification
 
 # encrypt
 fkey = open("key.txt", "rb")
@@ -12,24 +16,22 @@ cipher = Fernet(key)
 fkey.close()
 
 # graphic
+global winHeight, winWidth, resulations, current_res
 imgPath = "images/"
 backgroundColor = "#040030"
 secondColor = "#76E6CB"
-screenSize = (800, 600)
-global winHeight, winWidth
-
-
-servers = {"a": "aaaaaaaa", "b": "baaaaaaa", "c": "caaaaaaa"}
+user32 = ctypes.windll.user32
+maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
 window = Tk()
+
+#fonts sizes
+global titlesFontSize, appTextFontSize, titleWidth
 
 #connection
 ip = "127.0.0.1"
 port = 3339
 global sock
-
-#images
-global newImage
 
 #origin images
 XOriginImage = Image.open(f"{imgPath}xButton.png")
@@ -61,22 +63,50 @@ smallRegisterBTNImage = ImageTk.PhotoImage(smallRegisterImage)
 dmBTNImage = ImageTk.PhotoImage(dmImage)
 settingsBTNImage = ImageTk.PhotoImage(settingsImage)
 
-global emailEntry, passwordEntry, usernameEntry
+global emailEntry, passwordEntry, usernameEntry, isUser, titleX
+
+
+def getResulations(maxResulation):
+    allRes = {2560: "2560x1440", 1920: "1920x1080", 1280: "1280x720"}
+    possiableRes = allRes.copy()
+    maxWidht = maxResulation[0]
+    print(f"{maxWidht=}")
+    keys = allRes.keys()
+    for key in keys:
+        if maxWidht <= key:
+            print(f"{key=}")
+            del possiableRes[key]
+    possiableRes = list(possiableRes.values())
+    possiableRes.insert(0, "fullscreen")
+    print(f"{possiableRes=}")
+    return possiableRes
+        
 
 def register():
-    global emailEntry, passwordEntry, usernameEntry, f
+    global emailEntry, passwordEntry, usernameEntry, isUser
     username = usernameEntry.get()
     email = emailEntry.get()
     password = passwordEntry.get()
-    passwordValidate = checkPassword(password)
+    data = handle_sends("register", username, email, password).split("|")
+    successfully = data[1]
+    if successfully:
+        isUser = True
+        loadScreen("home")
+        notify("register successfully", "thank you for register")
+    elif data[2] == "password":
+        notify("register failed", "password is not valid")
+    elif not bool(data[3]):
+        notify("register failed", "email is already used")
+
+    # passwordValidate = checkPassword(password)
     # print('register')
-    if passwordValidate == "valid":
-        loadScreen("login")
-        userData = f"username: {username} email: {email} password: {password}"
-        # print(userData)
-        handle_sends("register", username, email, password)
-    else:
-        print(f"password: {password} is not valid because it is {passwordValidate}")
+    # if passwordValidate == "valid":
+    #     loadScreen("login")
+    #     userData = f"username: {username} email: {email} password: {password}"
+    #     # print(userData)
+    #     handle_sends("register", username, email, password)
+    # else:
+    #     print(f"password: {password} is not valid because it is {passwordValidate}")
 
 def checkPassword(password):
     if len(password) < 6:
@@ -89,34 +119,38 @@ def checkPassword(password):
         return "valid"
 
 def login():
-    global emailEntry, passwordEntry, cipher
+    global emailEntry, passwordEntry, cipher, isUser
     email = emailEntry.get()
     password = passwordEntry.get()
+    print(f"{email=}, {password=}")
     userData = f"email: {email} password: {password}"
-    sec = handle_sends("login", email, password).split("|")[1] == "successfully"
-    print(f"{sec=}")
+    successfully = handle_sends("login", email, password).split("|")[1] == "successfully"
+    print(f"{successfully=}")
 
-    if sec:
+    if successfully:
+        isUser=True
         loadScreen("home")
-        notify("login successfully", "loged in successfully")
+        notify("login successfully", "welcome back")
     else:
         notify("login failed","user params are inncorect")
     print(userData)
     print('login')
 
 def notify(title1, message1):
-    notification.notify(
-        title=title1,
-        message=message1,
-        timeout=10,
-        app_icon="images/app_logo.ico"
-    )
-    time.sleep(0.2)
+    global current_res
+    if current_res != "fullscreen":
+        nt.notify(
+            title=title1,
+            message=message1,
+            timeout=2
+        )
+    else:
+        emailEntry 
     
 
 def handle_sends(*arguments):
     toSend ="|".join(arguments) + "&"
-    print(toSend)
+    print(f"{toSend=}")
     encrypted_message = cipher.encrypt(toSend.encode())
     sock.send(encrypted_message)
     # print(f'{encrypted_message =}')
@@ -146,25 +180,32 @@ def temp(a):
 
 def home_screen():
     window.update()
-    dmY = 250
-    serversY = 450
-    lefSideX = 50
-    i = 0
+    dmY = int(winHeight/6.5)
+    serversY = int(winHeight/3.5)
+    lefSideX = int(winWidth/50)
     dm = Button(window, image=dmBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("dm"))
     dm.place(x=lefSideX, y=dmY)
+    
+    joinServer = Button(window, image=dmBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("dm"))
+    joinServer.place()
 
     servers = handle_sends("getServers").split("|")[1]
     print("-----------------------------------------------")
-    servers = json.loads(servers)
+    servers = dict(json.loads(servers))
     print(f"{servers=}")
     serversButtons = []
-    for server in servers:
+    keys = list(servers.keys())
+    for i, server in enumerate(keys):
         print(server)
-        serversButtons.append(Button(window, text=servers[server], bg=backgroundColor, fg=secondColor, font=("Assistant", 25, "bold"), command=lambda a=server: loadServer(a)))
-        serversButtons[i].place(x=lefSideX, y=serversY + 100 * i)
-        i += 1
+        sb = Button(window, text=servers[server], bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"), command=lambda a=server: loadServer(a))
+        sb.pack(anchor=N)
+        sb.update()
+        sb.place(x=lefSideX, y=(serversY + (int(winHeight/50) + sb.winfo_height()) * i))
+        window.update()
+        print(f"{winHeight=}")
+        serversButtons.append(sb)
 
-def resize_images(winWidth):
+def resize_screen(winWidth):
     global registerImage, registerBTNImage
     global loginImage, loginBTNImage
     global smallLoginImage, smallLoginBTNImage
@@ -173,6 +214,15 @@ def resize_images(winWidth):
     global XImage, XBTNImage
     global dmImage, dmBTNImage
     global settingsImage, settingsBTNImage
+
+    global titlesFontSize, appTextFontSize, titleWidth, titleX
+    #texts data
+    titlesFontSize  = int(winWidth/25)
+    appTextFontSize = int(winWidth/65)
+
+    titleWidth = int(winWidth / 4)
+
+    titleX = winWidth / 2 - titleWidth / 2
 
     #submin buttons
     proportion = 4
@@ -243,13 +293,8 @@ def get_new_size(originalSize: tuple, newWidth: int):
 def login_register_screens(screen):
     global emailEntry, usernameEntry, passwordEntry
     global winHeight, winWidth
+    global titlesFontSize, appTextFontSize, titleWidth
 
-    titleWidth = int(winWidth / 4)
-    titleFontSize = int(winWidth/20)
-    print(f"{titleFontSize=}")
-
-    entrysTitlesFontSize = int(winWidth/57)
-    titleX = winWidth / 2 - titleWidth / 2
     emailY = 1.7 * winHeight / 4
     passwordY = emailY + int(winHeight/7)
     labelX = winWidth / 4
@@ -257,45 +302,46 @@ def login_register_screens(screen):
     submitX = winWidth / 3 - 100
     submitY = passwordY + int(winWidth/12)
 
-    emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", entrysTitlesFontSize, "bold"), text="Email:")
+    emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Email:")
     emailLabel.place(x=labelX, y=emailY - (winHeight/17))
 
-    emailEntry = Entry(window, bg=secondColor, font=("Assistant", entrysTitlesFontSize, "bold"))
+    emailEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
     emailEntry.place(x=labelX, y=emailY, width=int(winWidth / 3))
 
-    passwordLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", entrysTitlesFontSize, "bold"), text="Password:")
+    passwordLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Password:")
     passwordLabel.place(x=labelX, y=passwordY - int(winHeight/17))
 
-    passwordEntry = Entry(window, bg=secondColor, font=("Assistant", entrysTitlesFontSize, "bold"), show="*")
+    passwordEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"), show="*")
     passwordEntry.place(x=labelX, y=passwordY, width=int(winWidth / 3))
 
     showPasswordButton = Checkbutton(window, text="show password", bg=backgroundColor, fg=secondColor,
                                      highlightthickness=0, activebackground=backgroundColor, bd=0,
-                                     font=("Assistant", int(0.7 * entrysTitlesFontSize), "bold"), command=show_password)
+                                     font=("Assistant", int(0.7 * appTextFontSize), "bold"), command=show_password)
     showPasswordButton.place(x=labelX, y=passwordY + int(winHeight/13))
+
+    titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", titlesFontSize, "bold"), text=screen)
+    titleLabel.place(x=titleX, y=50, width=titleWidth)
 
     if screen == "register":
         usernameY = emailY - int(winHeight/7)
-        usernameEntry = Entry(window, bg=secondColor, font=("Assistant", int(entrysTitlesFontSize * 0.8), "bold"))
+        usernameEntry = Entry(window, bg=secondColor, font=("Assistant", int(appTextFontSize), "bold"))
         usernameEntry.place(x=labelX, y=usernameY, width=int(winWidth / 3))
-        usernameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", entrysTitlesFontSize, "bold"),
+        usernameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"),
                               text="Username:")
         usernameLabel.place(x=labelX, y=usernameY - int(winHeight/17))
-        titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", titleFontSize, "bold"), text="register")
         
         submitButton = Button(window, image=registerBTNImage, bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=register)
         
-        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(entrysTitlesFontSize * 0.8), "bold"),
+        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"),
                               text="Already have account?")
         getOtherButton = Button(window, image=smallLoginBTNImage, bd=0, highlightthickness=0,
                                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("login"))
 
     else:
-        titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", titleFontSize, "bold"), text="login")
         submitButton = Button(window, image=loginBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor,
-                              bg=backgroundColor, command=login)
-        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(entrysTitlesFontSize * 0.8), "bold"),
+                              bg=backgroundColor, command= login)
+        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"),
                               text="Still don't have account?")
         getOtherButton = Button(window, image=smallRegisterBTNImage, bd=0, highlightthickness=0,
                                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("register"))
@@ -308,36 +354,56 @@ def login_register_screens(screen):
 
 
 def settingsScreen():
-    global window
+    global window, resulations, isUser
+
+    global titlesFontSize, appTextFontSize, titleWidth, titleX
+
 
     # scrollbar = Scrollbar(window, orient=VERTICAL, command=window.yview)
     # scrollbar.pack(side=RIGHT, fill=Y)
     # window.configure(yscrollcommand=scrollbar.set)
     # window.bind("<configure>", lambda a: window.configure(scrollregion=window.bbox("all")))
-
-    ResulationLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", 25, "bold"), text="Resulation:")
-    ResulationLabel.place(x=200, y=225)
+    resulationLabelX = 250
+    resulationLabelY = 250
+    resulationLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Resulation:")
+    resulationLabel.place(x=resulationLabelX, y=resulationLabelY)
     resulationButtons = []
-    resulations = ["fullscreen" ,"2560x1440", "1920x1080", "1280x720"]
+
+    titleLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", titlesFontSize, "bold"), text="settings")
+    titleLabel.place(x=titleX, y=50, width=titleWidth)
+
     for i, resulation in enumerate(resulations):
         print(f"{i=}")
         print(resulation)
-        resulationButtons.append(Button(window, text=resulations[i], bg=backgroundColor, fg=secondColor, font=("Assistant", 25, "bold"), command=lambda a=resulation: change_screen_resulation("settings", a)))
-        resulationButtons[i].place(x=300, y =300 + 75 * i)
-        max = 300 + 75 * i
-    logout = Button(window, text="Logout", bg=backgroundColor, fg=secondColor, font=("Assistant", 25, "bold"), command=logout_user)
-    logout.place(x=300, y= max+ 200)
+        rb = Button(window, text=resulations[i], bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.9), "bold"), command=lambda a=resulation: change_screen_resulation("settings", a))
+        rb.pack(anchor=N)
+        rb.update()
+        bh = rb.winfo_height()
+        max = ((resulationLabelY + resulationLabel.winfo_height() + int(winHeight/50)) + (int(winHeight/50) + rb.winfo_height()) * i)
+        rb.place(x=resulationLabelX + int (winWidth/ 50), y = max)
+        rb.update()
+        resulationButtons.append(rb)
+        print(f"{bh=}")
+    if isUser:
+        logout = Button(window, text="Logout", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command=logout_user)
+        logout.place(x=resulationLabelX, y= max + rb.winfo_height() + int(winHeight/25))
 
     # resulation.place(x=0, y=0)
     
 def logout_user():
-    loadScreen("login")
-    print("logout")
-
+    global isUser
+    isUser = False
+    successfully = handle_sends("logout").split("|")[1] == "successfully"
+    if successfully:
+        loadScreen("login")
+        print("logout")
+    else:
+        print("error")
 
 def change_screen_resulation(screen, res):
-    global window
+    global window, current_res
     print(f"{res=}")
+    current_res = res
     if res == "fullscreen":
         window.attributes('-fullscreen', True)
     else:
@@ -356,23 +422,28 @@ def loadScreen(screen):
     winWidth = window.winfo_width()
     winHeight = window.winfo_height()
 
-    resize_images(winWidth)
-
-    homeButton = Button(window, image=homeBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("home"))
-    homeButton.place(x=0, y=0)
+    resize_screen(winWidth)
 
     xButton = Button(window, image=XBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=close)
     xButton.pack(anchor=NE)
+    
+    homeButton = Button(window, image=homeBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("home"))
+    if not isUser:
+        homeButton.config(command=lambda: loadScreen("login"))        
+    homeButton.place(x=0, y=0)
+
 
     settings = Button(window, image=settingsBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("settings"))
     settings.place(x=winWidth-settingsImage.size[0], y=winHeight-settingsImage.size[1])
 
     if screen == "register" or screen == "login":
         login_register_screens(screen)
-    elif screen == "home":
-        home_screen()
-    if screen == "settings":
-        settingsScreen()
+    else:
+
+        if screen == "home":
+            home_screen()
+        elif screen == "settings":
+            settingsScreen()
 
 def close():
     global window
@@ -380,19 +451,25 @@ def close():
     window.destroy()
 
 def mainG():
-    global screenSize
-    global window, f, sock
+    global window, sock, resulations, isUser, current_res
 
+    isUser = False
     sock = socket.socket()
     sock.connect((ip, port))
 
     window.attributes('-fullscreen', True)
+    current_res = "fullscreen"
+    
     window.resizable(False, False)
     window.update()
     # print(str(window.winfo_width()) + " " + str(window.winfo_height()))
 
     window['background'] = backgroundColor
     loadScreen("register")
+
+
+    resulations = getResulations(maxResulation)
+
     # graphic_t = Thread(target=loadScreen, args=("register",))
     # graphic_t.start()
 

@@ -75,9 +75,10 @@ class ClientHandler:
         if data[0] == "getServers":
             self._handle_sends(data[0], self._get_servers())
         if data[0] == "loadServer":
-            print("yesssssssssssssssssssssssssssssssssssssssssssss")
             self._handle_sends(data[0], self._load_server_rooms(server=data[1]))
-
+        if data[0] == "logout":
+            print("yesssssssssssssssssssssssssssssssssssssssssssss")
+            self._handle_messages(data[0], self._logout())
 
     def _login(self, email: str, password: str) -> bool:
         user = db.collection('users').document(email).get()
@@ -93,6 +94,10 @@ class ClientHandler:
         print("imhere2")
         return False
 
+    def _logout(self):
+        self.user = None
+        return True
+    
     def _register(self, email: str, username: str, password: str) -> bool:
         user = db.collection('users').document(email).get()
         if user.exists:
@@ -145,7 +150,7 @@ class ClientHandler:
             case "login":
                 toSend = "loggedin|" + ("successfully" if params[0] else "failed") + f"|{params[1]}"
             case "register":
-                toSend = "registered| " + ("successfully" if params[0] else "failed") + f"|{params[1]}"
+                toSend = "registered| " + ("successfully" if params[0] == True else (f"failed|" + "password" if params[0] == "password is not valid" else "email")) + f"|{params[1]}"
             case "getServers":
                 toSend = f"servers|{json.dumps(params[0])}"
             case "loadServer":
