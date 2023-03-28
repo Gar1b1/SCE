@@ -94,6 +94,26 @@ class ClientHandler:
                 self._handle_sends(data[0], self._change_username(data[1]))
             case "change password":
                 self._handle_sends(data[0], self._change_password(data[1]))
+            case "send verification":
+                self._handle_sends(data[0], self._send_verification_email(data[1]))
+            case "verify email":
+                self._handle_sends(data[0], self._verify_email(data[1]))
+            case "reset password":
+                self._handle_sends(data[0], self._reset_password(data[1]))
+
+
+
+    def _verify_email(self, code):
+        print(code, self.verifyCode)
+        return "successfully" if code == self.verifyCode == code else "wrong code"
+
+    def _send_verification_email(self, reciver):
+        subject = "reset password confirmation email"
+        verifyCode = (''.join(random.choices(string.ascii_lowercase + string.digits, k=10)))
+        self.verifyCode = verifyCode
+        message = f"your verify code is: {verifyCode}"
+        self.email = reciver
+        return self._send_email(reciver, subject, message)
 
     def _change_username(self, new_username):
         print(new_username)
@@ -106,14 +126,25 @@ class ClientHandler:
         print(password)
         if not self.user.get().exists:
             return "user is not exists"
+        print(password)
         validate = self._check_is_password_valid(password)
-        if not validate[0]:
+        if not validate[0] ==  True:
             print(f"{validate=}")
             return f"password is not valid|{validate[1]}"
         print("r u ok?")
         password = hashlib.md5(password.encode()).hexdigest()
         self.user.update({"password": password})
         return "successfully"
+    
+    def _reset_password(self, password):
+        user = db.collection('users').document(self.email)
+        user2 = user.get()
+        if not user2.exists:
+            return "user is not exists"
+        password = hashlib.md5(password.encode()).hexdigest()
+        user.update({"password": password})
+        return "successfully"
+        
     
     def _get_friends(self):
         print("here??????????????????????????????????")
@@ -178,6 +209,7 @@ class ClientHandler:
             return f"email is not valid"
         if self._approve_email(email) == "email went wrong":
             return "email went wrong, please try again"
+        print("here please please please work")
         self.email = email
         self.password = password
         self.username = username
@@ -210,6 +242,7 @@ class ClientHandler:
         subject = "register confirmation email"
         verifyCode = (''.join(random.choices(string.ascii_lowercase + string.digits, k=10)))
         self.verifyCode = verifyCode
+        print('here1')
         message = f"your verify code is: {verifyCode}"
         return self._send_email(reciver, subject, message)
     
@@ -219,7 +252,7 @@ class ClientHandler:
         em["To"] = reciver
         em["Subject"] = subject
         em.set_content(message)
-
+        print('here2')
         context = ssl.create_default_context()
 
         try:
@@ -288,32 +321,18 @@ class ClientHandler:
         print(f'{type=} | {params=}')
         match type:
             case "login":
-                toSend = "loggedin|" + ("successfully" if params[0] else "failed") + f"|{params[1]}"
-            case "register":
-                # toSend = "registered| " + ("successfully" if params[0] is True else (f"failed|" + "password" if params[0] == "password is not valid" else "email")) + f"|{params[1]}"
-                toSend = f"registered|{params[0]}"
-            case "finish register":
-                toSend = f"finishRegister|{params[0]}"
+                toSend = "{type}|" + ("successfully" if params[0] else "failed") + f"|{params[1]}"
             case "logout":
-                toSend = "logedout|" + ("successfully" if params[0] else "failed")
+                toSend = "{type}|" + ("successfully" if params[0] else "failed")
             case "getServers":
-                toSend = f"servers|{json.dumps(params[0])}"
+                toSend = f"{type}|{json.dumps(params[0])}"
             case "getFriends":
-                toSend = f"Friends|{json.dumps(params[0])}"
+                toSend = f"{type}|{json.dumps(params[0])}"
             case "loadServer":
-                toSend = f"rooms|{json.dumps[params[0]]}"
-            case "joinServer":
-                toSend = f"joined|{params[0]}"
-            case "createServer":
-                toSend = f"created|{params[0]}"
-            case "error":
-                toSend = f"error|{params[0]}"
-            case "change username":
-                toSend = f"changed|{params[0]}"
-            case "change password":
-                toSend = f"changed|{params[0]}"
+                toSend = f"{type}|{json.dumps[params[0]]}"
             case _:
-                return False
+                toSend = f"{type}|{params[0]}"
+
         self.sock.send(cipher.encrypt(toSend.encode()))
         print(f"{toSend=}")
         return True

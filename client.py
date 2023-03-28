@@ -1,16 +1,12 @@
 from tkinter import *
+from tkinter import messagebox
 from tkinter import ttk
 import re, socket, platform, time, json
 from PIL import Image, ImageTk
 from threading import Thread
 from cryptography.fernet import Fernet
-from plyer import notification as nt
-import ctypes
-from win11toast import toast
-import win11toast
-# from winotify import Notification
-from windows_toasts import WindowsToaster,InteractableWindowsToaster, ToastInputTextBox, ToastText1, ToastButton
-import windows_toasts
+import ctypes, os
+from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
 
 
 
@@ -19,6 +15,10 @@ fkey = open("key.txt", "rb")
 key = fkey.read()
 cipher = Fernet(key)
 fkey.close()
+
+# notification
+winToaster = WindowsToaster("SCE")
+msgbox = messagebox
 
 # graphic
 global winHeight, winWidth, resulations, current_res, homeButton
@@ -54,6 +54,8 @@ createOriginImage = Image.open(f"{imgPath}createButton.png")
 addFriendOriginImage = Image.open(f"{imgPath}addFriend.png")
 addOriginImage = Image.open(f"{imgPath}addButton.png")
 changeOriginImage = Image.open(f"{imgPath}changeButton.png")
+sendOriginImage = Image.open(f"{imgPath}sendButton.png")
+verifyOriginImage = Image.open(f"{imgPath}verify.png")
 
 # XImage = Image.open(f"{imgPath}xButton.png")
 # homeImage = Image.open(f"{imgPath}homeButton.png")
@@ -75,10 +77,10 @@ changeOriginImage = Image.open(f"{imgPath}changeButton.png")
 # joinBTNImage = ImageTk.PhotoImage(joinImage)
 
 #changeable images
-global XImage, homeImage, registerImage, loginImage, smallLoginImage, smallRegisterImage, dmImage, settingsImage, joinServerImage, joinImage, newServerImage, createImage, addFriendImage, addImage, changeImage
+global XImage, homeImage, registerImage, loginImage, smallLoginImage, smallRegisterImage, dmImage, settingsImage, joinServerImage, joinImage, newServerImage, createImage, addFriendImage, addImage, changeImage, sendImage, verifyImage
 
 #buttons images
-global XBTNImage, homeBTNImage, registerBTNImage, loginBTNImage, smallLoginBTNImage, smallRegisterBTNImage, dmBTNImage, settingsBTNImage, joinServerBTNImage, joinBTNImage, newServerBTNImage, createBTNImage, addFriendBTNImage, addBTNImage, changeBTNImage
+global XBTNImage, homeBTNImage, registerBTNImage, loginBTNImage, smallLoginBTNImage, smallRegisterBTNImage, dmBTNImage, settingsBTNImage, joinServerBTNImage, joinBTNImage, newServerBTNImage, createBTNImage, addFriendBTNImage, addBTNImage, changeBTNImage, sendBTNImage, verifyBTNImage
 
 def getResulations(maxResulation):
     allRes = {2560: "2560x1440", 1920: "1920x1080", 1280: "1280x720"}
@@ -101,6 +103,15 @@ def register(email: str, password: str, username: str):
         print(password)
         notify("register failed", "password is not valid")
         return
+    if "|" in email or "&" in email:
+        print(password)
+        notify("register failed", "email is not valid")
+        return
+    if "|" in username or "&" in username:
+        print(password)
+        notify("register failed", "username is not valid")
+        return
+    
     print(f"{email=} {username=} {password=}")
     data = handle_sends("register", username, email, password).split("|")
     successfully = data[1] == "successfully"
@@ -127,7 +138,10 @@ def finish_register(verificationCode):
 def login(email: str, password: str):
     global isUser
     print(f"{email=}, {password=}")
-    userData = f"email: {email} password: {password}"
+    if "|" in password or "&" in password or "|" in email or "&" in email:
+        notify("login failed","user params are inncorect")
+        return
+
     successfully = handle_sends("login", email, password).split("|")[1] == "successfully"
     print(f"{successfully=}")
 
@@ -137,23 +151,29 @@ def login(email: str, password: str):
         notify("login successfully", "welcome back")
     else:
         notify("login failed","user params are inncorect")
-    print(userData)
     print('login')
 
 def notify(title1, message1):
     global current_res
     print(title1, message1)
     try:
+       msgbox.showinfo(title=title1, message=message1)
+    except Exception as e:
+        print(e)
+    try:
         # win11toast.ToastNotificationManager.create_toast_notifier("Python")
-        winToaster = WindowsToaster("SCE")
-        winToaster2 = InteractableWindowsToaster("SCE")
-        newToast = ToastText1()
+        # winToaster2 = InteractableWindowsToaster("SCE")
+        newToast = ToastImageAndText1()
         newToast.SetBody(message1)
-        newToast.AddInput(ToastInputTextBox("name", "your name", "Alon Garibi"))
-        newToast.AddAction(ToastButton("Submit", "submit"))
-        winToaster2.show_toast(newToast)
-    except:
-        pass
+        # newToast.SetHeadline(title1)
+        print(f"{os.getcwd()}/{imgPath}sce_logo.png")
+        newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{imgPath}sce_logo.png"))
+        winToaster.show_toast(newToast)
+        # newToast.AddInput(ToastInputTextBox("name", "your name", "Alon Garibi"))
+        # newToast.AddAction(ToastButton("Submit", "submit"))
+        # winToaster2.show_toast(newToast)
+    except Exception as e:
+        print(e)
 
     
 
@@ -241,9 +261,11 @@ def resize_screen():
     global addFriendImage, addFriendBTNImage
     global addImage, addBTNImage
     global changeImage, changeBTNImage
+    global sendImage, sendBTNImage
+    global verifyImage, verifyBTNImage
 
     global titlesFontSize, appTextFontSize, titleWidth, titleX, titleY, mainEntrysWidth
-    #texts data
+    # texts data
     titlesFontSize  = int(winWidth/25)
     appTextFontSize = int(winWidth/65)
 
@@ -288,40 +310,50 @@ def resize_screen():
     changeImage = changeOriginImage.resize(get_new_size(originalSize, newWidth))
     changeBTNImage = ImageTk.PhotoImage(changeImage)
 
-    # #small submit buttons
+    # send button
+    originalSize = sendOriginImage.size
+    sendImage = sendOriginImage.resize(get_new_size(originalSize, newWidth))
+    sendBTNImage = ImageTk.PhotoImage(sendImage)
+
+    # verify button
+    originalSize = verifyOriginImage.size
+    verifyImage = verifyOriginImage.resize(get_new_size(originalSize, newWidth))
+    verifyBTNImage = ImageTk.PhotoImage(verifyImage)
+
+    # small submit buttons
     proportion = 5
     newWidth = int(winWidth/proportion)
     
-    #small login button
+    # small login button
     originalSize = loginOriginImage.size
     smallLoginImage = loginOriginImage.resize(get_new_size(originalSize, newWidth))
     smallLoginBTNImage = ImageTk.PhotoImage(smallLoginImage)
 
-    #small register button
+    # small register button
     originalSize = registerOriginImage.size
     smallRegisterImage = registerOriginImage.resize(get_new_size(originalSize, newWidth))
     smallRegisterBTNImage = ImageTk.PhotoImage(smallRegisterImage)
 
-    #home buttons
+    # home buttons
     proportion = 12.8
     newWidth = int(winWidth/proportion)
 
-    #home button
+    # home button
     originalSize = homeOriginImage.size
     homeImage = homeOriginImage.resize(get_new_size(originalSize, newWidth))
     homeBTNImage = ImageTk.PhotoImage(homeImage)
 
-    #x button
+    # x button
     originalSize = XOriginImage.size
     XImage = XOriginImage.resize(get_new_size(originalSize, newWidth))
     XBTNImage = ImageTk.PhotoImage(XImage)
 
-    #settings button
+    # settings button
     originalSize = settingsOriginImage.size
     settingsImage = settingsOriginImage.resize(get_new_size(originalSize, newWidth))
     settingsBTNImage = ImageTk.PhotoImage(settingsImage)
 
-    #dm button
+    # dm button
     proportion = 17
     newWidth = int(winWidth/proportion)
 
@@ -329,21 +361,21 @@ def resize_screen():
     dmImage = dmOriginImage.resize(get_new_size(originalSize, newWidth))
     dmBTNImage = ImageTk.PhotoImage(dmImage)
 
-    #move to join/create server screen buttons
+    # move to join/create server screen buttons
     proportion = 8.5
     newWidth = int(winWidth/proportion)
     
-    #join server button
+    # join server button
     originalSize = joinServerOriginImage.size
     joinServerImage = joinServerOriginImage.resize(get_new_size(originalSize, newWidth))
     joinServerBTNImage = ImageTk.PhotoImage(joinServerImage)
 
-    #create server button
+    # create server button
     originalSize = newServerOriginImage.size
     newServerImage = newServerOriginImage.resize(get_new_size(originalSize, newWidth))
     newServerBTNImage = ImageTk.PhotoImage(newServerImage)
 
-    #add friend button
+    # add friend button
     originalSize = addFriendOriginImage.size
     addFriendImage = addFriendOriginImage.resize(get_new_size(originalSize, newWidth))
     addFriendBTNImage = ImageTk.PhotoImage(addFriendImage)
@@ -353,12 +385,13 @@ def get_new_size(originalSize: tuple, newWidth: int):
     return (newWidth, int(originalSize[1] * newWidth/originalSize[0]))
 
 def loginRegisterScreens(screen):
-    global emailEntry, usernameEntry, passwordEntry
-    global winHeight, winWidth
+    global winHeight, winWidth, window
     global titlesFontSize, appTextFontSize, titleWidth
+    window.update()
 
     emailY = int(winHeight/3.5)
     labelX = int(winWidth / 4)
+    getOtherLabel = 0
     
     if screen == "Register":
         usernameY = emailY + int(winHeight/7)
@@ -388,9 +421,6 @@ def loginRegisterScreens(screen):
         submitWidth = loginImage.size[0]
         submitX = int(mainEntrysWidth/2) + labelX - (submitWidth)/2
 
-        # forgotPassword = Button(window, text="Logout", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command=logout_user)
-        # forgotPassword.place(x=LabelX, y= max + rb.winfo_height() + int(winHeight/25))
-
 
     submitY = passwordY + int(winWidth/12)
 
@@ -414,14 +444,23 @@ def loginRegisterScreens(screen):
     if screen == "Register":
         submitButton = Button(window, image=registerBTNImage, bd=0, highlightthickness=0,
                 activebackground=backgroundColor, bg=backgroundColor, command= lambda: register(emailEntry.get(), passwordEntry.get(), usernameEntry.get()))
+        submitButton.place(x=submitX, y=submitY)
     else:
         submitButton = Button(window, image=loginBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor,
                 bg=backgroundColor, command= lambda: login(emailEntry.get(), passwordEntry.get()))
+        submitButton.place(x=submitX, y=submitY)
+        window.update()
+        print(submitButton.winfo_x())
 
-    #print(submitX)
-    submitButton.place(x=submitX, y=submitY)
-    getOtherLabel.place(x=submitX + int(winWidth / 2.5), y=submitY - (winHeight/24))
-    getOtherButton.place(x=submitX + int(winWidth / 2.5) - int(winWidth/60), y=submitY)
+        width = int(winWidth/5)
+        forgotPassword = Button(window, text="Forgot Password", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command= lambda: loadScreen("forgot password"))
+        forgotPassword.place(x = submitButton.winfo_x() + int(submitButton.winfo_width()/2) - int(width/2), y= submitButton.winfo_y() + submitButton.winfo_height() + int(winHeight/20), width=width)
+
+    # print(submitX)
+    gobx = submitX + int(winWidth / 2.5)
+    getOtherLabel.place(x= gobx, y=(submitY - (winHeight/24)))
+    getOtherButton.place(x=gobx - int(winWidth/60), y=submitY)
+    window.update()
 
 def settingsScreen():
     global window, resulations, isUser
@@ -474,7 +513,9 @@ def change_screen_resulation(screen, res):
 
     if res == "fullscreen":
         window.overrideredirect(True)
-        window.geometry(f"{window.winfo_screenwidth()}x{window.winfo_screenheight()}")
+        window.geometry(f"{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0")
+        print(window.winfo_screenwidth(), window.winfo_screenheight())
+        # window.pack(side=LEFT)
     else:
         window.overrideredirect(False)
         window.geometry(res)
@@ -518,8 +559,56 @@ def loadScreen(screen):
             DMScreen()
         case "server":
             serverScreen()
+        case "forgot password":
+            forgotPasswordScreen()
         case _:
             defualt_screen(screen)
+
+def forgotPasswordScreen():
+    emailY = int(winHeight/3.75)
+
+    labelsX = int((winWidth - mainEntrysWidth)/2)
+    
+    emailEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
+    emailEntry.place(x= labelsX, y=emailY, width=mainEntrysWidth)
+    emailEntry.update()
+    emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Email:")
+    emailLabel.place(x= labelsX, y=emailEntry.winfo_y() - (winHeight/20))
+    # emailLabel.update()
+
+    sendY = emailEntry.winfo_y() + emailEntry.winfo_height() + int(winHeight/25)
+    sendButton = Button(window, image=sendBTNImage, bd=0, highlightthickness=0,
+                activebackground=backgroundColor, bg=backgroundColor, command=lambda: handle_sends("send verification", emailEntry.get()))
+    sendButton.place(x= int((winWidth - sendImage.size[0])/2), y= sendY)
+    
+    sendButton.update()
+
+    resetCodeY = sendButton.winfo_y() + sendButton.winfo_height() + int(winHeight/15)
+
+    resetCodeLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"),
+                            text="Verification Code:")
+    resetCodeLabel.place(x=labelsX, y=resetCodeY)
+
+    resetCodeLabel.update()
+
+    resetCodeEntry = Entry(window, bg=secondColor, font=("Assistant", int(appTextFontSize), "bold"))
+    resetCodeEntry.place(x=labelsX, y=resetCodeLabel.winfo_y() + resetCodeLabel.winfo_height() + int(winHeight/100), width=mainEntrysWidth)
+
+    resetCodeEntry.update()
+
+    submitButton = Button(window, image=verifyBTNImage, bd=0, highlightthickness=0,
+                activebackground=backgroundColor, bg=backgroundColor, command=lambda: verifyEmail(resetCodeEntry.get()))
+    submitButton.place(x=sendButton.winfo_x(), y=resetCodeEntry.winfo_y() + resetCodeEntry.winfo_height() + int(winHeight/25))
+
+
+def verifyEmail(verficationCode):
+    data = handle_sends("verify email", verficationCode).split('|')
+    successfully = data[1] == "successfully"
+
+    if successfully:
+        loadScreen("reset password")
+    else:
+        notify("wrong code", "your verification code is wrong, please check again")
 
 def serverScreen():
     clearScreen()
@@ -588,30 +677,40 @@ def changeUserDataScreen():
 
 def manage_update(username, password):
     changed = False
-    if username != "":
-        data = handle_sends("change username", username).split('|')
-        print(f"{data=}")
-        changed = data[1] == "successfully"
-        if changed:
-            notify("username changed", "username changed successfully")
-        else:
-            notify("username didnt changed", "username changed failed")
-    if password != "":
-        if "|" in password or "&" in password:
-            print(password)
-            notify("password didnt changed", "password is not valid")
-            changed = False
-        else:
-            data = handle_sends("change password", password).split("|")
-            changed = data[1] == "successfully"
-            if changed:
-                notify("password changed", "password changed successfully")
+    if isUser:
+        if username != "":
+            if "|" in password or "&" in password:
+                print(password)
+                notify("password didnt changed", "password is not valid")
+                changed = False
+                return
+        
+            if "|" in username or "&" in username:
+                data = handle_sends("change username", username).split('|')
+                print(f"{data=}")
+                changed = data[1] == "successfully"
+                if changed:
+                    notify("username changed", "username changed successfully")
+                else:
+                    notify("username didnt changed", "username changed failed")
+        if password != "":
+            if "|" in password or "&" in password:
+                print(password)
+                notify("password didnt changed", "password is not valid")
+                changed = False
+                return
+
             else:
-                data = " ".join(data[1:])
-                notify("password didnt changed", data)
-    print(changed)
-    if changed:
-        loadScreen("Home")
+                data = handle_sends("change password", password).split("|")
+                changed = data[1] == "successfully"
+                if changed:
+                    notify("password changed", "password changed successfully")
+                else:
+                    data = " ".join(data[1:])
+                    notify("password didnt changed", data)
+        print(changed)
+        if changed:
+            loadScreen("Home")
 
     
 def DMScreen():
@@ -702,6 +801,10 @@ def defualt_screen(screen):
             backToRegister = Button(window, text="back to register".title(), bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("register"))
             backToRegister.place(x=submitX, y=submitY + registerImage.size[1] + int(winHeight/14))
+        case "reset password":
+            labelText = "New Password:"
+            submitButtonImage = changeBTNImage
+            submitX = int(winWidth/2) - int(changeImage.size[0]/2)
         case _:
             return
 
@@ -721,16 +824,36 @@ def defualt_screen(screen):
 
     submitButton = Button(window, image=submitButtonImage, bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=lambda: addFriend(entry.get()))
-    if screen == "Join Server":
-        newButton =  Button(window, image=newServerBTNImage, bd=0, highlightthickness=0,
-                                activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Create Server"))
-        newButton.place(x=0, y= winHeight - newServerImage.size[1])
-        submitButton.config(command=lambda: joinServer(entry.get()))
-    if screen == "email validation":
-        submitButton.config(command=lambda: finish_register(entry.get()))
-    
+    match screen:
+        case "Join Server":
+            newButton =  Button(window, image=newServerBTNImage, bd=0, highlightthickness=0,
+                                    activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Create Server"))
+            newButton.place(x=0, y= winHeight - newServerImage.size[1])
+            submitButton.config(command=lambda: joinServer(entry.get()))
+        case "email validation":
+            submitButton.config(command=lambda: finish_register(entry.get()))
+        case "reset password":
+            submitButton.config(command=lambda: resetPassword(entry.get()))
 
     submitButton.place(x=submitX, y=submitY)
+
+def resetPassword(password):
+    print(password)
+    if password != "":
+            if "|" in password or "&" in password:
+                print(password)
+                notify("password didnt changed", "password is not valid")
+                changed = False
+                return
+
+            else:
+                data = handle_sends("reset password", password).split("|")
+                changed = data[1] == "successfully"
+                if changed:
+                    notify("password changed", "password changed successfully")
+                else:
+                    data = " ".join(data[1:])
+                    notify("password didnt changed", data)
 
 def addFriend(a):
     pass
@@ -752,7 +875,7 @@ def close():
     # handle_client("close")
     window.destroy()
 
-def mainG():
+def main():
     global window, sock, resulations, isUser, current_res
 
     isUser = False
@@ -779,5 +902,5 @@ def mainG():
     # graphic_t.join()
 
 if __name__ == '__main__':
-    mainG()
+    main()
 
