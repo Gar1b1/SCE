@@ -10,8 +10,12 @@ from hashlib import md5
 from email.message import EmailMessage
 import ssl, smtplib
 
-#email
-global reciver
+from google.protobuf import timestamp_pb2
+import google.api_core.datetime_helpers as dateTimeHelper
+
+from datetime import datetime
+import dateutil
+
 
 #email sender
 email_sender = "sceprojectc@gmail.com"
@@ -82,8 +86,6 @@ class ClientHandler:
                 self._handle_sends(data[0], self._get_servers())
             case "getFriends":
                 self._handle_sends(data[0], self._get_friends())
-            case "loadServer":
-                self._handle_sends(data[0], self._load_server_rooms(server=data[1]))
             case "logout":
                 self._handle_sends(data[0], self._logout())
             case "joinServer":
@@ -100,8 +102,35 @@ class ClientHandler:
                 self._handle_sends(data[0], self._verify_email(data[1]))
             case "reset password":
                 self._handle_sends(data[0], self._reset_password(data[1]))
+            case "get rooms":
+                self._handle_sends(data[0], self._get_rooms(data[1]))
+            case "load room":
+                self._handle_sends(data[0], self._load_room(data[1]))
 
 
+    def _get_rooms(self, serverID):
+        server = db.collection('servers').document(serverID)
+        server2 = server.get()
+        if not server2.exists:
+            return "F|server not exists"
+        else:
+            textRooms = []
+            voiceRooms = []
+            print("here!")
+            dictRooms = server.collection("rooms").get()
+            print(f"{dictRooms=}")
+            for room in dictRooms:
+                # print(room.to_dict()["name"])
+                # room = room.to_dict()
+                print("here!")
+                room = room.to_dict()
+                if room["type"] == "text":
+                    textRooms.append(room["name"])
+                else:
+                    voiceRooms.append(room["name"])
+            print(textRooms)
+            self.current_server = server
+            return f"S|{'*'.join(textRooms)}|{'*'.join(voiceRooms)}"
 
     def _verify_email(self, code):
         print(code, self.verifyCode)
@@ -281,11 +310,37 @@ class ClientHandler:
         server.update({u'membersID': firestore.ArrayUnion([f'{email}'])})
         return "successfully"        
     
-    def _load_server_rooms(self, server: str) -> list:
-        rooms = db.collection("servers").document(server).collection("rooms").get()
-        for room in rooms:
-            print(room.to_dict())
-        return(rooms)
+    def _load_room(self, room: str) -> list:
+        if not self.current_server:
+            return "F|server not set"
+        if not self.current_server.get().exists:
+            return "F|server not exists"
+        c_room = self.current_server.collection("rooms").document(room).get()
+        if not c_room.exists:
+            return "F|room not exists"
+        
+        messages = c_room.to_dict()["messages"]
+
+        messages.sort(key= lambda x:x["time"])
+        
+        d_messages = []
+        for message in messages:
+            del message["time"]
+            message["author"] = self._load_username(message["author"])
+            d_messages.append(json.dumps(message))
+
+        print("\n\n\n\n\n\n\n")
+        print(f"{'*'.join(d_messages)}")
+
+        return f"S|{'*'.join(d_messages)}"
+    
+    def _load_username(self, email):
+        user = db.collection('users').document(email).get()
+        if user.exists:
+            return user.to_dict()["username"]
+        else:
+            return "deleted user"        
+        
 
     def _is_password_valid(self, password: str) -> str:
         if len(password) < 6:

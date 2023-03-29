@@ -7,8 +7,7 @@ from threading import Thread
 from cryptography.fernet import Fernet
 import ctypes, os
 from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
-
-
+import random, string
 
 # encrypt
 fkey = open("key.txt", "rb")
@@ -21,19 +20,15 @@ winToaster = WindowsToaster("SCE")
 msgbox = messagebox
 
 # graphic
-global winHeight, winWidth, resulations, current_res, homeButton
+global resulations, screenManager
 imgPath = "images/"
 backgroundColor = "#040030"
 secondColor = "#76E6CB"
-user32 = ctypes.windll.user32
-maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+thirdColor = "#001830"
 
 window = Tk()
 
-#sizes
-global titlesFontSize, appTextFontSize, titleWidth, mainEntrysWidth, titleX, titleY
-
-global isUser
+global isUser, current_server, toRemember
 
 #connection
 ip = "127.0.0.1"
@@ -41,21 +36,6 @@ port = 3339
 global sock
 
 #origin images
-XOriginImage = Image.open(f"{imgPath}xButton.png")
-homeOriginImage = Image.open(f"{imgPath}homeButton.png")
-registerOriginImage = Image.open(f"{imgPath}registerButton.png")
-loginOriginImage = Image.open(f"{imgPath}loginButton.png")
-dmOriginImage = Image.open(f"{imgPath}dmButton.png")
-settingsOriginImage = Image.open(f"{imgPath}settings.png")
-joinServerOriginImage = Image.open(f"{imgPath}joinServer.png")
-joinOriginImage = Image.open(f"{imgPath}joinButton.png")
-newServerOriginImage = Image.open(f"{imgPath}createServer.png")
-createOriginImage = Image.open(f"{imgPath}createButton.png")
-addFriendOriginImage = Image.open(f"{imgPath}addFriend.png")
-addOriginImage = Image.open(f"{imgPath}addButton.png")
-changeOriginImage = Image.open(f"{imgPath}changeButton.png")
-sendOriginImage = Image.open(f"{imgPath}sendButton.png")
-verifyOriginImage = Image.open(f"{imgPath}verify.png")
 
 # XImage = Image.open(f"{imgPath}xButton.png")
 # homeImage = Image.open(f"{imgPath}homeButton.png")
@@ -76,11 +56,180 @@ verifyOriginImage = Image.open(f"{imgPath}verify.png")
 # joinServerBTNImage = ImageTk.PhotoImage(joinServerImage)
 # joinBTNImage = ImageTk.PhotoImage(joinImage)
 
-#changeable images
-global XImage, homeImage, registerImage, loginImage, smallLoginImage, smallRegisterImage, dmImage, settingsImage, joinServerImage, joinImage, newServerImage, createImage, addFriendImage, addImage, changeImage, sendImage, verifyImage
+class screen_manager():
+    def __init__(self, window, current_res):
+        self.window = window
+        self.winWidth = self.window.winfo_width()
+        self.winHeight = self.window.winfo_height()
+  
+        self.XOriginImage = Image.open(f"{imgPath}xButton.png")
+        self.homeOriginImage = Image.open(f"{imgPath}homeButton.png")
+        self.registerOriginImage = Image.open(f"{imgPath}registerButton.png")
+        self.loginOriginImage = Image.open(f"{imgPath}loginButton.png")
+        self.dmOriginImage = Image.open(f"{imgPath}dmButton.png")
+        self.settingsOriginImage = Image.open(f"{imgPath}settings.png")
+        self.joinServerOriginImage = Image.open(f"{imgPath}joinServer.png")
+        self.joinOriginImage = Image.open(f"{imgPath}joinButton.png")
+        self.newServerOriginImage = Image.open(f"{imgPath}createServer.png")
+        self.createOriginImage = Image.open(f"{imgPath}createButton.png")
+        self.addFriendOriginImage = Image.open(f"{imgPath}addFriend.png")
+        self.addOriginImage = Image.open(f"{imgPath}addButton.png")
+        self.changeOriginImage = Image.open(f"{imgPath}changeButton.png")
+        self.sendOriginImage = Image.open(f"{imgPath}sendButton.png")
+        self.verifyOriginImage = Image.open(f"{imgPath}verify.png")
+        self.tOriginImage = Image.open(f"{imgPath}T.png")
+        self.vOriginImage = Image.open(f"{imgPath}V.png")
+        
+        user32 = ctypes.windll.user32
+        self.maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
-#buttons images
-global XBTNImage, homeBTNImage, registerBTNImage, loginBTNImage, smallLoginBTNImage, smallRegisterBTNImage, dmBTNImage, settingsBTNImage, joinServerBTNImage, joinBTNImage, newServerBTNImage, createBTNImage, addFriendBTNImage, addBTNImage, changeBTNImage, sendBTNImage, verifyBTNImage
+        self.current_res = current_res
+
+        self.resize_screen()
+
+    def resize_screen(self):
+        self.winWidth = self.window.winfo_width()
+        self.winHeight = self.window.winfo_height()
+        # texts data
+        self.titlesFontSize  = int(self.winWidth/25)
+        self.appTextFontSize = int(self.winWidth/65)
+        self.roomsNamesTextSize = int(self.winWidth/125)
+
+        self.titleWidth = int(self.winWidth / 1.25)
+
+        self.titleX = int(self.winWidth / 2) - int(self.titleWidth / 2)
+        self.titleY = int(self.winHeight / 28)
+
+        self.mainEntrysWidth = int(self.winWidth/3)
+
+        #submit buttons
+        proportion = 4
+        newWidth = int(self.winWidth/proportion)
+
+        # register button
+        originalSize = self.registerOriginImage.size
+        self.registerImage = self.registerOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.registerBTNImage = ImageTk.PhotoImage(self.registerImage)
+
+        # login button
+        originalSize = self.loginOriginImage.size
+        self.loginImage = self.loginOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.loginBTNImage = ImageTk.PhotoImage(self.loginImage)
+
+        # join button
+        originalSize = self.joinOriginImage.size
+        self.joinImage = self.joinOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.joinBTNImage = ImageTk.PhotoImage(self.joinImage)
+
+        # create button
+        originalSize = self.createOriginImage.size
+        self.createImage = self.createOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.createBTNImage = ImageTk.PhotoImage(self.createImage)
+
+        # add button
+        originalSize = self.addOriginImage.size
+        self.addImage = self.addOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.addBTNImage = ImageTk.PhotoImage(self.addImage)
+
+        # change button
+        originalSize = self.changeOriginImage.size
+        self.changeImage = self.changeOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.changeBTNImage = ImageTk.PhotoImage(self.changeImage)
+
+        # send button
+        originalSize = self.sendOriginImage.size
+        self.sendImage = self.sendOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.sendBTNImage = ImageTk.PhotoImage(self.sendImage)
+
+        # verify button
+        originalSize = self.verifyOriginImage.size
+        self.verifyImage = self.verifyOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.verifyBTNImage = ImageTk.PhotoImage(self.verifyImage)
+
+        # small submit buttons
+        proportion = 5
+        newWidth = int(self.winWidth/proportion)
+        
+        # small login button
+        originalSize = self.loginOriginImage.size
+        self.smallLoginImage = self.loginOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.smallLoginBTNImage = ImageTk.PhotoImage(self.smallLoginImage)
+
+        # small register button
+        originalSize = self.registerOriginImage.size
+        self.smallRegisterImage = self.registerOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.smallRegisterBTNImage = ImageTk.PhotoImage(self.smallRegisterImage)
+
+        # home buttons
+        proportion = 12.8
+        newWidth = int(self.winWidth/proportion)
+
+        # home button
+        originalSize = self.homeOriginImage.size
+        self.homeImage = self.homeOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.homeBTNImage = ImageTk.PhotoImage(self.homeImage)
+
+        # x button
+        originalSize = self.XOriginImage.size
+        self.XImage = self.XOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.XBTNImage = ImageTk.PhotoImage(self.XImage)
+
+        # settings button
+        originalSize = self.settingsOriginImage.size
+        self.settingsImage = self.settingsOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.settingsBTNImage = ImageTk.PhotoImage(self.settingsImage)
+
+        # dm button
+        proportion = 17
+        newWidth = int(self.winWidth/proportion)
+
+        originalSize = self.dmOriginImage.size
+        self.dmImage = self.dmOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.dmBTNImage = ImageTk.PhotoImage(self.dmImage)
+
+        # move to join/create server screen buttons
+        proportion = 8.5
+        newWidth = int(self.winWidth/proportion)
+        
+        # join server button
+        originalSize = self.joinServerOriginImage.size
+        self.joinServerImage = self.joinServerOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.joinServerBTNImage = ImageTk.PhotoImage(self.joinServerImage)
+
+        # create server button
+        originalSize = self.newServerOriginImage.size
+        self.newServerImage = self.newServerOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.newServerBTNImage = ImageTk.PhotoImage(self.newServerImage)
+
+        # add friend button
+        originalSize = self.addFriendOriginImage.size
+        self.addFriendImage = self.addFriendOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.addFriendBTNImage = ImageTk.PhotoImage(self.addFriendImage)
+
+        # rooms button
+        proportion = 51
+        newWidth = int(self.winHeight/proportion)
+
+        # t button
+        originalSize = self.tOriginImage.size
+        self.tImage = self.tOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.tBTNImage = ImageTk.PhotoImage(self.tImage)
+
+        #v button
+        originalSize = self.vOriginImage.size
+        self.vImage = self.vOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.vBTNImage = ImageTk.PhotoImage(self.vImage)
+        
+    def _get_new_size(self, originalSize: tuple, newWidth: int):
+        return (newWidth, int(originalSize[1] * newWidth/originalSize[0]))
+
+
+    def setTitleLowestY(self, titleLowestY):
+        self.titleLowestY = titleLowestY
+
+    def setCurrentRes(self, res):
+        self.currentRes = res
+
 
 def getResulations(maxResulation):
     allRes = {2560: "2560x1440", 1920: "1920x1080", 1280: "1280x720"}
@@ -94,25 +243,20 @@ def getResulations(maxResulation):
             del possiableRes[key]
     possiableRes = list(possiableRes.values())
     possiableRes.insert(0, "fullscreen")
-    print(f"{possiableRes=}")
     return possiableRes
         
 
 def register(email: str, password: str, username: str):
     if "|" in password or "&" in password:
-        print(password)
         notify("register failed", "password is not valid")
         return
     if "|" in email or "&" in email:
-        print(password)
         notify("register failed", "email is not valid")
         return
     if "|" in username or "&" in username:
-        print(password)
         notify("register failed", "username is not valid")
         return
     
-    print(f"{email=} {username=} {password=}")
     data = handle_sends("register", username, email, password).split("|")
     successfully = data[1] == "successfully"
         
@@ -122,7 +266,6 @@ def register(email: str, password: str, username: str):
 
     else:
         data = " ".join(data[1:])
-        print(f"{data}")
         notify("register failed", data)
 
 def finish_register(verificationCode):
@@ -136,42 +279,46 @@ def finish_register(verificationCode):
 
 
 def login(email: str, password: str):
+    global toRemember
     global isUser
-    print(f"{email=}, {password=}")
     if "|" in password or "&" in password or "|" in email or "&" in email:
         notify("login failed","user params are inncorect")
         return
 
     successfully = handle_sends("login", email, password).split("|")[1] == "successfully"
-    print(f"{successfully=}")
 
     if successfully:
         isUser=True
         loadScreen("Home")
         notify("login successfully", "welcome back")
+        if toRemember:
+            location = os.getcwd()+"/user.txt"
+            encrypted_email = cipher.encrypt(email.encode())
+            encrypted_password = cipher.encrypt(password.encode())
+            data = [encrypted_email, encrypted_password]
+            with open(location, "+ab") as encrypted_user_file:
+                encrypted_user_file.write(encrypted_email+"\n".encode())
+                encrypted_user_file.write(encrypted_password)
     else:
         notify("login failed","user params are inncorect")
-    print('login')
 
 def notify(title1, message1):
-    global current_res
-    print(title1, message1)
-    try:
-       msgbox.showinfo(title=title1, message=message1)
-    except Exception as e:
-        print(e)
     try:
         # win11toast.ToastNotificationManager.create_toast_notifier("Python")
         # winToaster2 = InteractableWindowsToaster("SCE")
         newToast = ToastImageAndText1()
-        newToast.SetBody(message1)
+        newToast.SetBody(title1 + " | " + message1)
         # newToast.SetHeadline(title1)
-        print(f"{os.getcwd()}/{imgPath}sce_logo.png")
         newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{imgPath}sce_logo.png"))
         winToaster.show_toast(newToast)
         # newToast.AddInput(ToastInputTextBox("name", "your name", "Alon Garibi"))
         # newToast.AddAction(ToastButton("Submit", "submit"))
         # winToaster2.show_toast(newToast)
+    except Exception as e:
+        print(e)
+
+    try:
+       msgbox.showinfo(title=title1, message=message1)
     except Exception as e:
         print(e)
 
@@ -194,7 +341,7 @@ def waitToConfim():
     return message
 
 def clearScreen():
-    for widget in window.winfo_children():
+    for widget in screenManager.window.winfo_children():
         widget.destroy()
 
 def show_password(passwordEntry):
@@ -204,295 +351,167 @@ def show_password(passwordEntry):
         passwordEntry.config(show='*')
 
 def loadServer(server):
+    global current_server
+    current_server = server
     loadScreen("server")
     # dataOfMessages = handle_sends("loadServer", server)
-    print(server)
 
 def temp(a):
     return a
 
 def homeSceen():
-    dmY = int(winHeight/6.5)
-    serversY = int(winHeight/3.5)
-    lefSideX = int(winWidth/50)
-    dm = Button(window, image=dmBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("dm"))
+    global toRemember
+    dmY = int(screenManager.winHeight/6.5)
+    serversY = int(screenManager.winHeight/3.5)
+    lefSideX = int(screenManager.winWidth/50)
+    dm = Button(screenManager.window, image=screenManager.dmBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("dm"))
     dm.place(x=lefSideX, y=dmY)
     
-    joinServer = Button(window, image=joinServerBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Join Server"))
-    joinServer.place(x=winWidth-joinServerImage.size[0], y=winHeight-settingsImage.size[1] - joinServerImage.size[1] - winHeight/30)
+    joinServer = Button(screenManager.window, image=screenManager.joinServerBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Join Server"))
+    joinServer.place(x=screenManager.winWidth-screenManager.joinServerImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1] - screenManager.joinServerImage.size[1] - screenManager.winHeight/30)
 
     joinServer.update()
 
     servers = handle_sends("getServers").split("|")[1]
-    print("-----------------------------------------------")
     servers = dict(json.loads(servers))
-    print(f"{servers=}")
     serversButtons = []
     keys = list(servers.keys())
     first = True
     for server in keys:
-        print(server)
-        sb = Button(window, text=servers[server], bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"), command=lambda a=server: loadServer(a))
+        sb = Button(screenManager.window, text=servers[server], bg=backgroundColor, fg=secondColor, font=("Assistant", int(screenManager.appTextFontSize * 0.8), "bold"), command=lambda a=server: loadServer(a))
         y = serversY
         if not first:
-            y = serversButtons[-1].winfo_y() + serversButtons[-1].winfo_height() + int(winHeight/100)
+            y = serversButtons[-1].winfo_y() + serversButtons[-1].winfo_height() + int(screenManager.winHeight/100)
         first = False
         
         sb.place(x=lefSideX, y= y)
         sb.update()
-        print(f"{winHeight=}")
         serversButtons.append(sb)
-    window.update()
-    
-
-def resize_screen():
-    global registerImage, registerBTNImage
-    global loginImage, loginBTNImage
-    global joinImage, joinBTNImage
-    global joinServerImage, joinServerBTNImage
-    global smallLoginImage, smallLoginBTNImage
-    global smallRegisterImage, smallRegisterBTNImage
-    global homeImage, homeBTNImage
-    global XImage, XBTNImage
-    global dmImage, dmBTNImage
-    global settingsImage, settingsBTNImage
-    global newServerImage, newServerBTNImage
-    global createImage, createBTNImage
-    global addFriendImage, addFriendBTNImage
-    global addImage, addBTNImage
-    global changeImage, changeBTNImage
-    global sendImage, sendBTNImage
-    global verifyImage, verifyBTNImage
-
-    global titlesFontSize, appTextFontSize, titleWidth, titleX, titleY, mainEntrysWidth
-    # texts data
-    titlesFontSize  = int(winWidth/25)
-    appTextFontSize = int(winWidth/65)
-
-    titleWidth = int(winWidth / 1.25)
-
-    titleX = int(winWidth / 2) - int(titleWidth / 2)
-    titleY = int(winHeight / 28)
-
-    mainEntrysWidth = int(winWidth/3)
-
-    #submit buttons
-    proportion = 4
-    newWidth = int(winWidth/proportion)
-
-    # register button
-    originalSize = registerOriginImage.size
-    registerImage = registerOriginImage.resize(get_new_size(originalSize, newWidth))
-    registerBTNImage = ImageTk.PhotoImage(registerImage)
-
-    # login button
-    originalSize = loginOriginImage.size
-    loginImage = loginOriginImage.resize(get_new_size(originalSize, newWidth))
-    loginBTNImage = ImageTk.PhotoImage(loginImage)
-
-    # join button
-    originalSize = joinOriginImage.size
-    joinImage = joinOriginImage.resize(get_new_size(originalSize, newWidth))
-    joinBTNImage = ImageTk.PhotoImage(joinImage)
-
-    # create button
-    originalSize = createOriginImage.size
-    createImage = createOriginImage.resize(get_new_size(originalSize, newWidth))
-    createBTNImage = ImageTk.PhotoImage(createImage)
-
-    # add button
-    originalSize = addOriginImage.size
-    addImage = addOriginImage.resize(get_new_size(originalSize, newWidth))
-    addBTNImage = ImageTk.PhotoImage(addImage)
-
-    # change button
-    originalSize = changeOriginImage.size
-    changeImage = changeOriginImage.resize(get_new_size(originalSize, newWidth))
-    changeBTNImage = ImageTk.PhotoImage(changeImage)
-
-    # send button
-    originalSize = sendOriginImage.size
-    sendImage = sendOriginImage.resize(get_new_size(originalSize, newWidth))
-    sendBTNImage = ImageTk.PhotoImage(sendImage)
-
-    # verify button
-    originalSize = verifyOriginImage.size
-    verifyImage = verifyOriginImage.resize(get_new_size(originalSize, newWidth))
-    verifyBTNImage = ImageTk.PhotoImage(verifyImage)
-
-    # small submit buttons
-    proportion = 5
-    newWidth = int(winWidth/proportion)
-    
-    # small login button
-    originalSize = loginOriginImage.size
-    smallLoginImage = loginOriginImage.resize(get_new_size(originalSize, newWidth))
-    smallLoginBTNImage = ImageTk.PhotoImage(smallLoginImage)
-
-    # small register button
-    originalSize = registerOriginImage.size
-    smallRegisterImage = registerOriginImage.resize(get_new_size(originalSize, newWidth))
-    smallRegisterBTNImage = ImageTk.PhotoImage(smallRegisterImage)
-
-    # home buttons
-    proportion = 12.8
-    newWidth = int(winWidth/proportion)
-
-    # home button
-    originalSize = homeOriginImage.size
-    homeImage = homeOriginImage.resize(get_new_size(originalSize, newWidth))
-    homeBTNImage = ImageTk.PhotoImage(homeImage)
-
-    # x button
-    originalSize = XOriginImage.size
-    XImage = XOriginImage.resize(get_new_size(originalSize, newWidth))
-    XBTNImage = ImageTk.PhotoImage(XImage)
-
-    # settings button
-    originalSize = settingsOriginImage.size
-    settingsImage = settingsOriginImage.resize(get_new_size(originalSize, newWidth))
-    settingsBTNImage = ImageTk.PhotoImage(settingsImage)
-
-    # dm button
-    proportion = 17
-    newWidth = int(winWidth/proportion)
-
-    originalSize = dmOriginImage.size
-    dmImage = dmOriginImage.resize(get_new_size(originalSize, newWidth))
-    dmBTNImage = ImageTk.PhotoImage(dmImage)
-
-    # move to join/create server screen buttons
-    proportion = 8.5
-    newWidth = int(winWidth/proportion)
-    
-    # join server button
-    originalSize = joinServerOriginImage.size
-    joinServerImage = joinServerOriginImage.resize(get_new_size(originalSize, newWidth))
-    joinServerBTNImage = ImageTk.PhotoImage(joinServerImage)
-
-    # create server button
-    originalSize = newServerOriginImage.size
-    newServerImage = newServerOriginImage.resize(get_new_size(originalSize, newWidth))
-    newServerBTNImage = ImageTk.PhotoImage(newServerImage)
-
-    # add friend button
-    originalSize = addFriendOriginImage.size
-    addFriendImage = addFriendOriginImage.resize(get_new_size(originalSize, newWidth))
-    addFriendBTNImage = ImageTk.PhotoImage(addFriendImage)
-
-
-def get_new_size(originalSize: tuple, newWidth: int):
-    return (newWidth, int(originalSize[1] * newWidth/originalSize[0]))
+    screenManager.window.update()
 
 def loginRegisterScreens(screen):
-    global winHeight, winWidth, window
-    global titlesFontSize, appTextFontSize, titleWidth
-    window.update()
+    global toRemember
+    screenManager.window.update()
 
-    emailY = int(winHeight/3.5)
-    labelX = int(winWidth / 4)
+    emailY = int(screenManager.winHeight/3.5)
+    labelX = int(screenManager.winWidth / 4)
     getOtherLabel = 0
     
     if screen == "Register":
-        usernameY = emailY + int(winHeight/7)
-        passwordY = emailY + int(winHeight/3.5)
-        usernameEntry = Entry(window, bg=secondColor, font=("Assistant", int(appTextFontSize), "bold"))
-        usernameEntry.place(x=labelX, y=usernameY, width=mainEntrysWidth)
-        usernameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"),
+        usernameY = emailY + int(screenManager.winHeight/7)
+        passwordY = emailY + int(screenManager.winHeight/3.5)
+        usernameEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", int(screenManager.appTextFontSize), "bold"))
+        usernameEntry.place(x=labelX, y=usernameY, width=screenManager.mainEntrysWidth)
+        usernameLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"),
                               text="Username:")
-        usernameLabel.place(x=labelX, y=usernameY - int(winHeight/17))
+        usernameLabel.place(x=labelX, y=usernameY - int(screenManager.winHeight/17))
         
-        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"),
+        getOtherLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(screenManager.appTextFontSize * 0.8), "bold"),
                               text="Already have account?")
-        getOtherButton = Button(window, image=smallLoginBTNImage, bd=0, highlightthickness=0,
+        getOtherButton = Button(screenManager.window, image=screenManager.smallLoginBTNImage, bd=0, highlightthickness=0,
                                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("login"))
-        submitWidth = registerImage.size[0]
-        submitX = int(mainEntrysWidth/2) + labelX - (submitWidth)/2
+        submitWidth = screenManager.registerImage.size[0]
+        submitX = int(screenManager.mainEntrysWidth/2) + labelX - (submitWidth)/2
         
 
     else:
-        passwordY = emailY + int(winHeight/7)
+        passwordY = emailY + int(screenManager.winHeight/7)
 
-        getOtherLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"),
+        getOtherLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", int(screenManager.appTextFontSize * 0.8), "bold"),
                               text="Still don't have account?")
-        getOtherButton = Button(window, image=smallRegisterBTNImage, bd=0, highlightthickness=0,
+        getOtherButton = Button(screenManager.window, image=screenManager.smallRegisterBTNImage, bd=0, highlightthickness=0,
                                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Register"))
         
-        submitWidth = loginImage.size[0]
-        submitX = int(mainEntrysWidth/2) + labelX - (submitWidth)/2
+        submitWidth = screenManager.loginImage.size[0]
+        submitX = int(screenManager.mainEntrysWidth/2) + labelX - (submitWidth)/2
 
+    emailLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text="Email:")
+    emailLabel.place(x=labelX, y=emailY - (screenManager.winHeight/17))
 
-    submitY = passwordY + int(winWidth/12)
+    emailEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"))
+    emailEntry.place(x=labelX, y=emailY, width=screenManager.mainEntrysWidth)
 
-    emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Email:")
-    emailLabel.place(x=labelX, y=emailY - (winHeight/17))
+    passwordLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text="Password:")
+    passwordLabel.place(x=labelX, y=passwordY - int(screenManager.winHeight/17))
 
-    emailEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
-    emailEntry.place(x=labelX, y=emailY, width=mainEntrysWidth)
+    passwordEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), show="*")
+    passwordEntry.place(x=labelX, y=passwordY, width=screenManager.mainEntrysWidth)
 
-    passwordLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Password:")
-    passwordLabel.place(x=labelX, y=passwordY - int(winHeight/17))
-
-    passwordEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"), show="*")
-    passwordEntry.place(x=labelX, y=passwordY, width=mainEntrysWidth)
-
-    showPasswordButton = Checkbutton(window, text="show password", bg=backgroundColor, fg=secondColor,
+    showPasswordButton = Checkbutton(screenManager.window, text="show password", bg=backgroundColor, fg=secondColor,
                                      highlightthickness=0, activebackground=backgroundColor, bd=0,
-                                     font=("Assistant", int(0.7 * appTextFontSize), "bold"), command= lambda: show_password(passwordEntry))
-    showPasswordButton.place(x=labelX, y=passwordY + int(winHeight/13))
+                                     font=("Assistant", int(0.7 * screenManager.appTextFontSize), "bold"), command= lambda: show_password(passwordEntry))
+    showPasswordButton.place(x=labelX, y=passwordY + int(screenManager.winHeight/13))
+    screenManager.window.update()
 
     if screen == "Register":
-        submitButton = Button(window, image=registerBTNImage, bd=0, highlightthickness=0,
+        submitY = showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screenManager.winHeight/40)
+
+        submitButton = Button(screenManager.window, image=screenManager.registerBTNImage, bd=0, highlightthickness=0,
                 activebackground=backgroundColor, bg=backgroundColor, command= lambda: register(emailEntry.get(), passwordEntry.get(), usernameEntry.get()))
         submitButton.place(x=submitX, y=submitY)
     else:
-        submitButton = Button(window, image=loginBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor,
-                bg=backgroundColor, command= lambda: login(emailEntry.get(), passwordEntry.get()))
+        toRemember = False
+        remmeberMeButton = Checkbutton(screenManager.window, text="remmeber me", bg=backgroundColor, fg=secondColor, highlightthickness=0, activebackground=backgroundColor, bd=0,
+                                       font=("Assistant", int(0.7 * screenManager.appTextFontSize), "bold"), command=toggleToRemember)
+
+        remmeberMeButton.place(x=labelX, y=showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screenManager.winHeight/40))
+    
+        screenManager.window.update()
+        
+        submitY = remmeberMeButton.winfo_y() + remmeberMeButton.winfo_height() + int(screenManager.winHeight/40)
+
+        submitButton = Button(screenManager.window, image=screenManager.loginBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor,
+                              bg=backgroundColor, command= lambda: login(emailEntry.get(), passwordEntry.get()))
         submitButton.place(x=submitX, y=submitY)
-        window.update()
-        print(submitButton.winfo_x())
+        screenManager.window.update()
 
-        width = int(winWidth/5)
-        forgotPassword = Button(window, text="Forgot Password", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command= lambda: loadScreen("forgot password"))
-        forgotPassword.place(x = submitButton.winfo_x() + int(submitButton.winfo_width()/2) - int(width/2), y= submitButton.winfo_y() + submitButton.winfo_height() + int(winHeight/20), width=width)
+        width = int(screenManager.winWidth/5)
+        forgotPassword = Button(screenManager.window, text="Forgot Password", bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), command= lambda: loadScreen("forgot password"))
+        forgotPassword.place(x = submitButton.winfo_x() + int(submitButton.winfo_width()/2) - int(width/2), y= submitButton.winfo_y() + submitButton.winfo_height() + int(screenManager.winHeight/20), width=width)
 
-    # print(submitX)
-    gobx = submitX + int(winWidth / 2.5)
-    getOtherLabel.place(x= gobx, y=(submitY - (winHeight/24)))
-    getOtherButton.place(x=gobx - int(winWidth/60), y=submitY)
-    window.update()
+    gobx = submitX + int(screenManager.winWidth / 2.5)
+    getOtherLabel.place(x= gobx, y=(submitY - (screenManager.winHeight/24)))
+    getOtherButton.place(x=gobx - int(screenManager.winWidth/60), y=submitY)
+    screenManager.window.update()
+
+    if screen == "login":
+        location = os.getcwd()+"/user.txt"
+        if os.path.getsize(location) > 0:
+            with open(location, 'rb') as encrypted_user_file:
+                lines = encrypted_user_file.readlines()
+                encryptedEmail = lines[0][:-1]
+                encryptedPassword = lines[1]
+                login(cipher.decrypt(encryptedEmail).decode(), cipher.decrypt(encryptedPassword).decode())
+
+def toggleToRemember():
+    global toRemember
+    toRemember = not toRemember
 
 def settingsScreen():
-    global window, resulations, isUser
+    global resulations, isUser
 
-    global titlesFontSize, appTextFontSize, titleWidth, titleX
-
-    LabelX = int(winWidth/10)
-    resulationLabelY = int(winHeight/5.5)
-    resulationLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Resulation:")
+    LabelX = int(screenManager.winWidth/10)
+    resulationLabelY = int(screenManager.winHeight/5.5)
+    resulationLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text="Resulation:")
     resulationLabel.place(x=LabelX, y=resulationLabelY)
     resulationButtons = []
 
     for i, resulation in enumerate(resulations):
-        print(f"{i=}")
-        print(resulation)
-        rb = Button(window, text=resulations[i], bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.9), "bold"), command=lambda a=resulation: change_screen_resulation("settings", a))
+        rb = Button(screenManager.window, text=resulations[i], bg=backgroundColor, fg=secondColor, font=("Assistant", int(screenManager.appTextFontSize * 0.9), "bold"), command=lambda a=resulation: change_screen_resulation("settings", a))
         rb.pack(anchor=N)
         rb.update()
         bh = rb.winfo_height()
-        max = ((resulationLabelY + resulationLabel.winfo_height() + int(winHeight/50)) + (int(winHeight/50) + rb.winfo_height()) * i)
-        rb.place(x=LabelX + int (winWidth/ 50), y = max)
+        max = ((resulationLabelY + resulationLabel.winfo_height() + int(screenManager.winHeight/50)) + (int(screenManager.winHeight/50) + rb.winfo_height()) * i)
+        rb.place(x=LabelX + int (screenManager.winWidth/ 50), y = max)
         rb.update()
         resulationButtons.append(rb)
-        print(f"{bh=}")
     if isUser:
-        logout = Button(window, text="Logout", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command=logout_user)
-        logout.place(x=LabelX, y= max + rb.winfo_height() + int(winHeight/25))
+        logout = Button(screenManager.window, text="Logout", bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), command=logout_user)
+        logout.place(x=LabelX, y= max + rb.winfo_height() + int(screenManager.winHeight/25))
 
-        window.update()
-        print(f"{logout.winfo_y()=}")
-        chnageUser = Button(window, text="change user data", bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), command = lambda: loadScreen("change user"))
-        chnageUser.place(x=LabelX, y = logout.winfo_y() + logout.winfo_height() + int(winHeight/25))
+        screenManager.window.update()
+        chnageUser = Button(screenManager.window, text="change user data", bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), command = lambda: loadScreen("change user"))
+        chnageUser.place(x=LabelX, y = logout.winfo_y() + logout.winfo_height() + int(screenManager.winHeight/25))
 
     # resulation.place(x=0, y=0)
     
@@ -501,44 +520,37 @@ def logout_user():
     isUser = False
     successfully = handle_sends("logout").split("|")[1] == "successfully"
     if successfully:
+        location = os.getcwd()+"/user.txt"
+        with open(location,'r+') as file:
+            file.truncate(0)
         loadScreen("login")
-        print("logout")
     else:
         print("error")
 
 def change_screen_resulation(screen, res):
-    global window, current_res
-    print(f"{res=}")
-    current_res = res
+    screenManager.setCurrentRes(res)
 
     if res == "fullscreen":
-        window.overrideredirect(True)
-        window.geometry(f"{window.winfo_screenwidth()}x{window.winfo_screenheight()}+0+0")
-        print(window.winfo_screenwidth(), window.winfo_screenheight())
-        # window.pack(side=LEFT)
+        screenManager.window.attributes('-fullscreen', True)       
     else:
-        window.overrideredirect(False)
-        window.geometry(res)
-    window.update()
+        screenManager.window.attributes('-fullscreen', False)       
+        screenManager.window.geometry(res)
+
+    screenManager.window.update()
     loadScreen(screen)
 
 def loadScreen(screen):
-    global window, emailEntry, passwordEntry, usernameEntry
-    global winHeight, winWidth, homeButton
-
     clearScreen()
 
-    winWidth = window.winfo_width()
-    winHeight = window.winfo_height()
 
-    window.update()
 
-    resize_screen()
+    screenManager.window.update()
 
-    loadBasicScreen(window, screen)
+    screenManager.resize_screen()
 
-    window.update()
+    loadBasicScreen(screenManager.window, screen)
 
+    screenManager.window.update()
 
     print(screen)
     
@@ -558,47 +570,47 @@ def loadScreen(screen):
         case "dm":
             DMScreen()
         case "server":
-            serverScreen()
+            server_screen()
         case "forgot password":
             forgotPasswordScreen()
         case _:
             defualt_screen(screen)
 
 def forgotPasswordScreen():
-    emailY = int(winHeight/3.75)
+    emailY = int(screenManager.winHeight/3.75)
 
-    labelsX = int((winWidth - mainEntrysWidth)/2)
+    labelsX = int((screenManager.winWidth - screenManager.mainEntrysWidth)/2)
     
-    emailEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
-    emailEntry.place(x= labelsX, y=emailY, width=mainEntrysWidth)
+    emailEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"))
+    emailEntry.place(x= labelsX, y=emailY, width=screenManager.mainEntrysWidth)
     emailEntry.update()
-    emailLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Email:")
-    emailLabel.place(x= labelsX, y=emailEntry.winfo_y() - (winHeight/20))
+    emailLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text="Email:")
+    emailLabel.place(x= labelsX, y=emailEntry.winfo_y() - (screenManager.winHeight/20))
     # emailLabel.update()
 
-    sendY = emailEntry.winfo_y() + emailEntry.winfo_height() + int(winHeight/25)
-    sendButton = Button(window, image=sendBTNImage, bd=0, highlightthickness=0,
+    sendY = emailEntry.winfo_y() + emailEntry.winfo_height() + int(screenManager.winHeight/25)
+    sendButton = Button(screenManager.window, image=screenManager.sendBTNImage, bd=0, highlightthickness=0,
                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: handle_sends("send verification", emailEntry.get()))
-    sendButton.place(x= int((winWidth - sendImage.size[0])/2), y= sendY)
+    sendButton.place(x= int((screenManager.winWidth - screenManager.sendImage.size[0])/2), y= sendY)
     
     sendButton.update()
 
-    resetCodeY = sendButton.winfo_y() + sendButton.winfo_height() + int(winHeight/15)
+    resetCodeY = sendButton.winfo_y() + sendButton.winfo_height() + int(screenManager.winHeight/15)
 
-    resetCodeLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"),
+    resetCodeLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"),
                             text="Verification Code:")
     resetCodeLabel.place(x=labelsX, y=resetCodeY)
 
     resetCodeLabel.update()
 
-    resetCodeEntry = Entry(window, bg=secondColor, font=("Assistant", int(appTextFontSize), "bold"))
-    resetCodeEntry.place(x=labelsX, y=resetCodeLabel.winfo_y() + resetCodeLabel.winfo_height() + int(winHeight/100), width=mainEntrysWidth)
+    resetCodeEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", int(screenManager.appTextFontSize), "bold"))
+    resetCodeEntry.place(x=labelsX, y=resetCodeLabel.winfo_y() + resetCodeLabel.winfo_height() + int(screenManager.winHeight/100), width=screenManager.mainEntrysWidth)
 
     resetCodeEntry.update()
 
-    submitButton = Button(window, image=verifyBTNImage, bd=0, highlightthickness=0,
+    submitButton = Button(screenManager.window, image=screenManager.verifyBTNImage, bd=0, highlightthickness=0,
                 activebackground=backgroundColor, bg=backgroundColor, command=lambda: verifyEmail(resetCodeEntry.get()))
-    submitButton.place(x=sendButton.winfo_x(), y=resetCodeEntry.winfo_y() + resetCodeEntry.winfo_height() + int(winHeight/25))
+    submitButton.place(x=sendButton.winfo_x(), y=resetCodeEntry.winfo_y() + resetCodeEntry.winfo_height() + int(screenManager.winHeight/25))
 
 
 def verifyEmail(verficationCode):
@@ -610,68 +622,221 @@ def verifyEmail(verficationCode):
     else:
         notify("wrong code", "your verification code is wrong, please check again")
 
-def serverScreen():
-    clearScreen()
-    serverCanvas = Canvas(window, bg=backgroundColor, bd=0, highlightthickness=0, highlightcolor=backgroundColor, width=winWidth, height=winHeight)
-    serverCanvas['background'] = backgroundColor,
-    scrollBar = ttk.Scrollbar 
+class server_screen():
+    def __init__(self):
+        self.isMessages = False
+        self.serverScreen()
 
-    serverCanvas.pack(fill= BOTH, expand= True)
-    loadBasicScreen(serverCanvas, "server")
+    def serverScreen(self):
+        self.current_server = current_server
+        # clearScreen()
+        self.frameYPos = max(screenManager.titleLowestY, screenManager.homeImage.size[1])
+        # frame.pack(side=LEFT, fill=Y, expand=True)
+        self.width = screenManager.winWidth - screenManager.settingsImage.size[0]
+        self.height = screenManager.winHeight - self.frameYPos
+        self.roomsWidth = self.width * 0.15
+        self.roomsX = 0
+        self.loadRoomsCanvas()
+
+        self.messagesWidth = self.width * 0.7
+        self.messagesX = self.roomsWidth
+        self.loadMessagesCanvas()
+
+        self.participantsWidth = self.width - self.roomsWidth - self.messagesWidth
+        print(self.participantsWidth/self.width)
+        self.participantsX = self.messagesWidth + self.roomsWidth
+        self.loadParticipantsCanvas()
+
+    def loadRoomsCanvas(self):
+        self.roomsFrame = Frame(screenManager.window)
+
+        self.roomsFrame.place(x=self.roomsX, y=self.frameYPos, width=self.roomsWidth, height=self.height)
+        self.roomsFrame.update()
+        
+        self.roomsCanvas = Canvas(self.roomsFrame, bg=thirdColor, bd=0, highlightthickness=0, highlightcolor=backgroundColor, width=self.roomsFrame.winfo_width(),height=self.roomsFrame.winfo_height())
+        self.roomsCanvas.pack(side=LEFT, expand=True, fill=BOTH)
+        
+        self.roomsScrollBar = ttk.Scrollbar(self.roomsCanvas, orient=VERTICAL, command=self.roomsCanvas.yview)
+        self.roomsScrollBar.pack(side=RIGHT, fill=Y)
+
+        self.roomsCanvas.configure(yscrollcommand=self.roomsScrollBar.set)
+        self.roomsCanvas.bind("<Configure>", lambda e: self.roomsCanvas.configure(scrollregion=self.roomsCanvas.bbox("all")))
+        
+        self.secRoomsFrame = Frame(self.roomsCanvas, bg=thirdColor)
+        self.roomsCanvas.create_window((0, 0), window=self.secRoomsFrame, anchor=NW)
+
+        # current_room = "mainRoom"
+
+        self.rooms = handle_sends("get rooms", self.current_server)
+        self.rooms = self.rooms.split("|")
+        print(self.rooms)
+        isSuccessful = self.rooms[1] == "S"
+        if not isSuccessful:
+            loadScreen("home")
+            return
+        self.textRooms = self.rooms[2]
+        self.voiceRooms =self. rooms[3]
+        self.textRooms = self.textRooms.split("*")
+        self.voiceRooms = self.voiceRooms.split("*")
+        if self.textRooms == [""]:
+            self.textRooms.clear()
+        if self.voiceRooms == [""]:
+            self.voiceRooms.clear()
+        # rooms = [(''.join(random.choices(string.ascii_lowercase, k=12))) for i in range(250)]
+        self.lastButtonY = 0
+        # longest = 0
+        if self.textRooms:
+            self.textRoomsLabel = Label(self.roomsCanvas, text = "Text Rooms:", bg=thirdColor, highlightthickness=0, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), fg=secondColor)
+            self.textRoomsLabel.place(x=0, y=0)
+            self.textRoomsLabel.update()
+            
+            self.lastButtonY = self.textRoomsLabel.winfo_y() + self.textRoomsLabel.winfo_height()
+
+            for room in self.textRooms:   
+                if room != "":
+                    a = Button(self.roomsCanvas, text=" "+room, image=screenManager.tBTNImage, compound=LEFT, bg=thirdColor, highlightthickness=0, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), fg=secondColor, command=lambda a = room: self.loadTextRoom(a))
+                    a.place(x=0, y = int(screenManager.winHeight/70) + self.lastButtonY)
+                    a.update()
+                    self.lastButtonY = a.winfo_y() + a.winfo_height()
+                    # longest = max(longest, a.winfo_width())
+                    # longest = min(longest, roomsWidth)
+
+        if self.voiceRooms:
+            self.voiceRoomsLabel = Label(self.roomsCanvas, text = "Voice Rooms:", bg=thirdColor, highlightthickness=0, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), fg=secondColor)
+            self.voiceRoomsLabel.place(x=0, y=self.lastButtonY + screenManager.winHeight/70)
+            self.voiceRoomsLabel.update()
+            self.lastButtonY = self.voiceRoomsLabel.winfo_y() + self.voiceRoomsLabel.winfo_height()
+            self.voiceRoomsLabel.update()
+
+            for room in self.voiceRooms:
+                if room != "":
+                    a = Button(self.roomsCanvas, text=" "+room, image=screenManager.vBTNImage, compound=LEFT, bg=thirdColor, highlightthickness=0, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), fg=secondColor)
+                    a.place(x=0, y = int(screenManager.winHeight/70) + self.lastButtonY)
+                    a.update()
+                    self.lastButtonY = a.winfo_y() + a.winfo_height()
+                    # longest = max(longest, a.winfo_width())
+                    # longest = min(longest, roomsWidth)
+
+        # roomsFrame.place(x=0, y=frameYPos, width=longest + roomsScrollBar.winfo_width(), height=height)
+        # roomsFrame.update()
+        # roomsScrollBar.pack(side=RIGHT, fill=Y)
+
+    def loadMessagesCanvas(self):
+        self.messagesFrame = Frame(screenManager.window)
+
+        self.messagesFrame.place(x=self.messagesX, y=self.frameYPos, width=self.messagesWidth, height=self.height)
+        self.messagesFrame.update()
+        
+        messagesCanvas = Canvas(self.messagesFrame, bg=thirdColor, bd=0, highlightthickness=0, highlightcolor=backgroundColor, width=self.messagesFrame.winfo_width(),height=self.messagesFrame.winfo_height())
+        messagesCanvas.pack(side=LEFT, expand=True, fill=BOTH)
+        
+        messagesScrollBar = ttk.Scrollbar(messagesCanvas, orient=VERTICAL, command=messagesCanvas.yview)
+        messagesScrollBar.pack(side=RIGHT, fill=Y)
+
+        messagesCanvas.configure(yscrollcommand=messagesScrollBar.set)
+        messagesCanvas.bind("<Configure>", lambda e: messagesCanvas.configure(scrollregion=messagesCanvas.bbox("all")))
+        
+        secMessageFrame = Frame(messagesCanvas, bg=thirdColor)
+        messagesCanvas.create_window((0, 0), window=secMessageFrame, anchor=NE)
+        
+        if self.isMessages:
+            for message in self.messages:
+                print(f"{message=}")
+                message = json.loads(message)
+                print("yay")
+                print(message)
+                authorL = Label(secMessageFrame, text=message["author"] + ":", fg=secondColor, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), bg=thirdColor)
+                messageL = Label(secMessageFrame, text=message["data"], fg=secondColor, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), bg=thirdColor)
+                space = Label(secMessageFrame, text="", fg=secondColor, font=("Assistant", screenManager.roomsNamesTextSize, "bold"), bg=thirdColor)
+                authorL.pack(anchor=NW)
+                messageL.pack(anchor=NW)
+                space.pack(anchor=NW)
+
+
+    def loadParticipantsCanvas(self):
+        self.participantsFrame = Frame(screenManager.window)
+
+        self.participantsFrame.place(x=self.participantsX, y=self.frameYPos, width=self.participantsWidth, height=self.height)
+        self.participantsFrame.update()
+        
+        self.participantsCanvas = Canvas(self.participantsFrame, bg=thirdColor, bd=0, highlightthickness=0, highlightcolor=backgroundColor, width=self.participantsFrame.winfo_width(),height=self.participantsFrame.winfo_height())
+        self.participantsCanvas.pack(side=LEFT, expand=True, fill=BOTH)
+        
+        self.participantsScrollBar = ttk.Scrollbar(self.participantsCanvas, orient=VERTICAL, command=self.participantsCanvas.yview)
+        self.participantsScrollBar.pack(side=RIGHT, fill=Y)
+
+        self.participantsCanvas.configure(yscrollcommand=self.participantsScrollBar.set)
+        self.participantsCanvas.bind("<Configure>", lambda e: self.participantsCanvas.configure(scrollregion=self.participantsCanvas.bbox("all")))
+        
+        self.secParticipantsFrame = Frame(self.participantsCanvas, bg=thirdColor)
+        self.participantsCanvas.create_window((0, 0), window=self.secParticipantsFrame, anchor=N)
+        
+    def loadTextRoom(self, room):
+        data = handle_sends("load room", room).split("|")
+        success = data[1] == "S"
+        if success:
+            self.messages = data[2].split("*")
+            print(self.messages)
+            self.isMessages = True
+            self.loadMessagesCanvas()
+        else:
+            notify("load room error", data[2])
 
 def loadBasicScreen(window2, screen):
 
-    xButton = Button(window2, image=XBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=close)
+    xButton = Button(window2, image=screenManager.XBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=close)
     xButton.pack(anchor=NE)
     
-    titleLabel = Label(window2, bg=backgroundColor, fg=secondColor, font=("Assistant", titlesFontSize, "bold"), text=screen.upper())
-    titleLabel.place(x=titleX, y=int(winHeight/29), width=titleWidth)
+    titleLabel = Label(window2, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.titlesFontSize, "bold"), text=screen.upper())
+    titleLabel.place(x=screenManager.titleX, y=int(screenManager.winHeight/29), width=screenManager.titleWidth)
+    titleLabel.update()
+    screenManager.setTitleLowestY(titleLabel.winfo_y() + titleLabel.winfo_height())
 
-    homeButton = Button(window2, image=homeBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Home"))
+    homeButton = Button(window2, image=screenManager.homeBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Home"))
     if not isUser:
         homeButton.config(command=lambda: loadScreen("login"))        
     homeButton.place(x=0, y=0)
     
     if screen != "settings":
-        settings = Button(window2, image=settingsBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("settings"))
-        settings.place(x=winWidth-settingsImage.size[0], y=winHeight-settingsImage.size[1])
+        settings = Button(window2, image=screenManager.settingsBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("settings"))
+        settings.place(x=screenManager.winWidth-screenManager.settingsImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1])
         settings.update()
 
     
 
 def changeUserDataScreen():
-    usernameY = int(1.7 * winHeight / 4)
-    passwordY = usernameY + int(winHeight/7)
-    labelX = int(winWidth / 4)
+    usernameY = int(1.7 * screenManager.winHeight / 4)
+    passwordY = usernameY + int(screenManager.winHeight/7)
+    labelX = int(screenManager.winWidth / 4)
 
-    submitX = mainEntrysWidth - 100
-    submitY = passwordY + int(winWidth/12)
+    submitX = screenManager.mainEntrysWidth - 100
+    submitY = passwordY + int(screenManager.winWidth/12)
 
     changeUsernameLabelText = "New Username:"
     changePasswordLabelText = "New Password:"
     explainText = "not all required".title()
-    explainLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("assitant", appTextFontSize, "bold"), text=explainText)
-    explainLabel.place(x=0, y=usernameY - int(winHeight/7), width=winWidth)
+    explainLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("assitant", screenManager.appTextFontSize, "bold"), text=explainText)
+    explainLabel.place(x=0, y=usernameY - int(screenManager.winHeight/7), width=screenManager.winWidth)
 
-    changeUsernameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"),
+    changeUsernameLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"),
                          text=changeUsernameLabelText)
-    changeUsernameLabel.place(x=labelX, y=usernameY - int(winHeight/17))
+    changeUsernameLabel.place(x=labelX, y=usernameY - int(screenManager.winHeight/17))
     
-    changeUsernameEntry = Entry(window, bg=secondColor, font=("Assistant", int(appTextFontSize), "bold"))
-    changeUsernameEntry.place(x=labelX, y=usernameY, width=mainEntrysWidth)
+    changeUsernameEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", int(screenManager.appTextFontSize), "bold"))
+    changeUsernameEntry.place(x=labelX, y=usernameY, width=screenManager.mainEntrysWidth)
 
-    ChangePasswordLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text=changePasswordLabelText)
-    ChangePasswordLabel.place(x=labelX, y=passwordY - int(winHeight/17))
+    ChangePasswordLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text=changePasswordLabelText)
+    ChangePasswordLabel.place(x=labelX, y=passwordY - int(screenManager.winHeight/17))
     
-    ChangePasswordEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"), show="*")
-    ChangePasswordEntry.place(x=labelX, y=passwordY, width=mainEntrysWidth)
+    ChangePasswordEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), show="*")
+    ChangePasswordEntry.place(x=labelX, y=passwordY, width=screenManager.mainEntrysWidth)
 
-    showPasswordButton = Checkbutton(window, text="show password", bg=backgroundColor, fg=secondColor,
+    showPasswordButton = Checkbutton(screenManager.window, text="show password", bg=backgroundColor, fg=secondColor,
                                      highlightthickness=0, activebackground=backgroundColor, bd=0,
-                                     font=("Assistant", int(0.7 * appTextFontSize), "bold"), command=lambda: show_password(ChangePasswordEntry))
-    showPasswordButton.place(x=labelX, y=passwordY + int(winHeight/13))
+                                     font=("Assistant", int(0.7 * screenManager.appTextFontSize), "bold"), command=lambda: show_password(ChangePasswordEntry))
+    showPasswordButton.place(x=labelX, y=passwordY + int(screenManager.winHeight/13))
 
-    submitButton = Button(window, image=changeBTNImage, bd=0, highlightthickness=0,
+    submitButton = Button(screenManager.window, image=screenManager.changeBTNImage, bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=lambda: manage_update(changeUsernameEntry.get(), ChangePasswordEntry.get()))
     submitButton.place(x=submitX, y=submitY)
 
@@ -680,14 +845,12 @@ def manage_update(username, password):
     if isUser:
         if username != "":
             if "|" in password or "&" in password:
-                print(password)
                 notify("password didnt changed", "password is not valid")
                 changed = False
                 return
         
             if "|" in username or "&" in username:
                 data = handle_sends("change username", username).split('|')
-                print(f"{data=}")
                 changed = data[1] == "successfully"
                 if changed:
                     notify("username changed", "username changed successfully")
@@ -695,7 +858,6 @@ def manage_update(username, password):
                     notify("username didnt changed", "username changed failed")
         if password != "":
             if "|" in password or "&" in password:
-                print(password)
                 notify("password didnt changed", "password is not valid")
                 changed = False
                 return
@@ -708,64 +870,57 @@ def manage_update(username, password):
                 else:
                     data = " ".join(data[1:])
                     notify("password didnt changed", data)
-        print(changed)
         if changed:
             loadScreen("Home")
 
     
 def DMScreen():
-    friendsY = int(winHeight/5)
-    lefSideX = int(winWidth/50)
+    friendsY = int(screenManager.winHeight/5)
+    lefSideX = int(screenManager.winWidth/50)
         
-    addFriend = Button(window, image=addFriendBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Add friend"))
-    addFriend.place(x=winWidth-joinServerImage.size[0], y=winHeight-settingsImage.size[1] - joinServerImage.size[1] - winHeight/30)
+    addFriend = Button(screenManager.window, image=screenManager.addFriendBTNImage, bd=0, highlightthickness=0, activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Add friend"))
+    addFriend.place(x=screenManager.winWidth-screenManager.joinServerImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1] - screenManager.joinServerImage.size[1] - screenManager.winHeight/30)
 
     friends = handle_sends("getFriends").split("|")[1]
-    print("-----------------------------------------------")
     friends = dict(json.loads(friends))
-    print(f"{friends=}")
     friendsButtons = []
     keys = list(friends.keys())
     for i, frined in enumerate(keys):
-        print(friends)
-        sb = Button(window, text=friends[frined], bg=backgroundColor, fg=secondColor, font=("Assistant", int(appTextFontSize * 0.8), "bold"), command=lambda a=frined: loadDMChat(a))
+        sb = Button(screenManager.window, text=friends[frined], bg=backgroundColor, fg=secondColor, font=("Assistant", int(screenManager.appTextFontSize * 0.8), "bold"), command=lambda a=frined: loadDMChat(a))
         sb.pack(anchor=N)
         sb.update()
-        sb.place(x=lefSideX, y=(friendsY + (int(winHeight/50) + sb.winfo_height()) * i))
-        window.update()
-        print(f"{winHeight=}")
+        sb.place(x=lefSideX, y=(friendsY + (int(screenManager.winHeight/50) + sb.winfo_height()) * i))
+        screenManager.window.update()
         friendsButtons.append(sb)
 
 def loadDMChat(id):
     pass
 
 def createServerScreen():
-    global winHeight, winWidth
-    global titlesFontSize, appTextFontSize, titleWidth
 
-    nameY = int(1.7 * winHeight / 4)
-    isGhostRoomsY = nameY + int(winHeight/7)
-    labelX = int(winWidth / 4)
+    nameY = int(1.7 * screenManager.winHeight / 4)
+    isGhostRoomsY = nameY + int(screenManager.winHeight/7)
+    labelX = int(screenManager.winWidth / 4)
     ghostRooms = False
 
-    submitX = mainEntrysWidth - 100
-    submitY = isGhostRoomsY + int(winWidth/20)
+    submitX = screenManager.mainEntrysWidth - 100
+    submitY = isGhostRoomsY + int(screenManager.winWidth/20)
 
-    nameLabel = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text="Server Name:")
-    nameLabel.place(x=labelX, y=nameY - (winHeight/17))
+    nameLabel = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text="Server Name:")
+    nameLabel.place(x=labelX, y=nameY - (screenManager.winHeight/17))
 
-    nameEntry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
-    nameEntry.place(x=labelX, y=nameY, width=mainEntrysWidth)
+    nameEntry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"))
+    nameEntry.place(x=labelX, y=nameY, width=screenManager.mainEntrysWidth)
 
-    ghostRoomButton = Checkbutton(window, text="ghost room", bg=backgroundColor, fg=secondColor,
-                                     highlightthickness=0, activebackground=backgroundColor, bd=0, font=("Assistant", int(0.7 * appTextFontSize), "bold"), variable=ghostRooms, offvalue=False, onvalue=True)
-    ghostRoomButton.place(x=labelX, y=nameY + int(winHeight/13))
-    window.update()
+    ghostRoomButton = Checkbutton(screenManager.window, text="ghost room", bg=backgroundColor, fg=secondColor,
+                                     highlightthickness=0, activebackground=backgroundColor, bd=0, font=("Assistant", int(0.7 * screenManager.appTextFontSize), "bold"), variable=ghostRooms, offvalue=False, onvalue=True)
+    ghostRoomButton.place(x=labelX, y=nameY + int(screenManager.winHeight/13))
+    screenManager.window.update()
 
-    submitButton = Button(window, image=createBTNImage, bd=0, highlightthickness=0,
+    submitButton = Button(screenManager.window, image=screenManager.createBTNImage, bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=lambda: createServer(nameEntry.get(), ghostRooms))
 
-    submitButton.place(x=int(winWidth/2) - int(joinImage.size[0]/2), y=submitY)
+    submitButton.place(x=int(screenManager.winWidth/2) - int(screenManager.joinImage.size[0]/2), y=submitY)
 
 def createServer(name, isGhost):
     data = handle_sends("createServer", name, str(isGhost)).split("|")
@@ -777,68 +932,68 @@ def createServer(name, isGhost):
 
 
 def defualt_screen(screen):    
-    print(f"{screen=}")
 
-    labelX = int(winWidth / 4)
-    idEntryWidth = int(winWidth / 4)
-    labelY = int(1.2 * winHeight / 4)
-    submitY = labelY + int(winHeight / 7)
+    labelX = int(screenManager.winWidth / 4)
+    idEntryWidth = int(screenManager.winWidth / 4)
+    labelY = int(1.2 * screenManager.winHeight / 4)
+    submitY = labelY + int(screenManager.winHeight / 7)
     
     match screen:
         case "Add friend":
             labelText = "Friend Email:"
-            submitButtonImage = addBTNImage
-            submitX = int(winWidth/2) - int(addImage.size[0]/2)
+            submitButtonImage = screenManager.addBTNImage
+            submitX = int(screenManager.winWidth/2) - int(screenManager.addImage.size[0]/2)
         case "Join Server":
             labelText = "Server ID:"
-            submitButtonImage = joinBTNImage
-            submitX = int(winWidth/2) - int(joinImage.size[0]/2)
+            submitButtonImage = screenManager.joinBTNImage
+            submitX = int(screenManager.winWidth/2) - int(screenManager.joinImage.size[0]/2)
         case "email validation":
-            print("here")
             labelText = "Verify Code:"
-            submitButtonImage = registerBTNImage
-            submitX = int(winWidth/2) - int(addImage.size[0]/2)
-            backToRegister = Button(window, text="back to register".title(), bd=0, highlightthickness=0,
-                              activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("register"))
-            backToRegister.place(x=submitX, y=submitY + registerImage.size[1] + int(winHeight/14))
+            submitButtonImage = screenManager.registerBTNImage
+            submitX = int(screenManager.winWidth/2) - int(screenManager.addImage.size[0]/2)
         case "reset password":
             labelText = "New Password:"
-            submitButtonImage = changeBTNImage
-            submitX = int(winWidth/2) - int(changeImage.size[0]/2)
+            submitButtonImage = screenManager.changeBTNImage
+            submitX = int(screenManager.winWidth/2) - int(screenManager.changeImage.size[0]/2)
         case _:
             return
 
-    label = Label(window, bg=backgroundColor, fg=secondColor, font=("Assistant", appTextFontSize, "bold"), text=labelText)
+    label = Label(screenManager.window, bg=backgroundColor, fg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"), text=labelText)
     label.place(x=labelX, y=labelY)
 
     label.update()
     len = idEntryWidth + int(label.winfo_width())
-    labelX = int(winWidth/2)-int(len/2)
+    labelX = int(screenManager.winWidth/2)-int(len/2)
 
     label.place(x=labelX, y=labelY)
     label.update()
-    entry = Entry(window, bg=secondColor, font=("Assistant", appTextFontSize, "bold"))
+    entry = Entry(screenManager.window, bg=secondColor, font=("Assistant", screenManager.appTextFontSize, "bold"))
     entry.place(x=labelX + label.winfo_width(), y=labelY, width=idEntryWidth)
     entry.update()
 
 
-    submitButton = Button(window, image=submitButtonImage, bd=0, highlightthickness=0,
+    submitButton = Button(screenManager.window, image=submitButtonImage, bd=0, highlightthickness=0,
                               activebackground=backgroundColor, bg=backgroundColor, command=lambda: addFriend(entry.get()))
     match screen:
         case "Join Server":
-            newButton =  Button(window, image=newServerBTNImage, bd=0, highlightthickness=0,
+            newButton =  Button(screenManager.window, image=screenManager.newServerBTNImage, bd=0, highlightthickness=0,
                                     activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Create Server"))
-            newButton.place(x=0, y= winHeight - newServerImage.size[1])
+            newButton.place(x=0, y= screenManager.winHeight - screenManager.newServerImage.size[1])
             submitButton.config(command=lambda: joinServer(entry.get()))
         case "email validation":
             submitButton.config(command=lambda: finish_register(entry.get()))
+            try:
+                newButton =  Button(screenManager.window, text= "Back", bd=0, highlightthickness=0,
+                                        activebackground=backgroundColor, bg=backgroundColor, command=lambda: loadScreen("Create Server"))
+                newButton.pack(anchor=CENTER)
+            except Exception as e:
+                print(e)
+            newButton.update()
         case "reset password":
             submitButton.config(command=lambda: resetPassword(entry.get()))
-
     submitButton.place(x=submitX, y=submitY)
-
+    screenManager.window.update()
 def resetPassword(password):
-    print(password)
     if password != "":
             if "|" in password or "&" in password:
                 print(password)
@@ -859,9 +1014,7 @@ def addFriend(a):
     pass
     
 def joinServer(id: Entry):
-    print(f"{id=}")
     data = handle_sends("joinServer", id).split("|")
-    print(data)
     successfully = data[1] == "successfully"
     if successfully:
         notify("joined server", "joined successfully to server")
@@ -871,29 +1024,29 @@ def joinServer(id: Entry):
 
 
 def close():
-    global window
     # handle_client("close")
-    window.destroy()
+    screenManager.window.destroy()
 
 def main():
-    global window, sock, resulations, isUser, current_res
+    global sock, resulations, isUser, screenManager
 
     isUser = False
     sock = socket.socket()
     sock.connect((ip, port))
 
-    # window.attributes('-fullscreen', False)
-    current_res = "fullscreen"
-    # window.attributes('-fullscreen', True)
-    
-    window.resizable(False, False)
-    # print(str(window.winfo_width()) + " " + str(window.winfo_height()))
 
-    window['background'] = backgroundColor
-    # window.attributes('-fullscreen', False)
+    window.update()
+    current_res = "fullscreen"
+    screenManager = screen_manager(window, current_res)
+    
+    screenManager.window.resizable(False, False)
+    screenManager.window['background'] = backgroundColor
+
+    screenManager.window.update()
+
     change_screen_resulation("login", "fullscreen")
 
-    resulations = getResulations(maxResulation)
+    resulations = getResulations(screenManager.maxResulation)
 
     # graphic_t = Thread(target=loadScreen, args=("Register",))
     # graphic_t.start()
@@ -903,4 +1056,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
