@@ -19,7 +19,7 @@ import dateutil
 
 #email sender
 email_sender = "sceprojectc@gmail.com"
-email_password = "fpiskvcmlmhyifxj"
+email_password = "zoulqjmbhogkbcgq"
 
 # encrypt
 fKey = open("key.txt", "rb")
@@ -104,9 +104,20 @@ class ClientHandler:
                 self._handle_sends(data[0], self._reset_password(data[1]))
             case "get rooms":
                 self._handle_sends(data[0], self._get_rooms(data[1]))
+            case "get participants":
+                self._handle_sends(data[0], self._get_participants())
             case "load room":
                 self._handle_sends(data[0], self._load_room(data[1]))
+            case "add message":
+                self._handle_sends(data[0], self._add_message(data[1]))
 
+    def _add_message(self, message):
+        try:
+            messageData = {"author": self.user.get().to_dict()["email"], "data": message, "time": datetime.now(tz=timezone("Asia/Jerusalem"))}
+            self.current_room.update({u'messages': firestore.ArrayUnion([messageData])})
+            return "S"
+        except:
+            return "F"
 
     def _get_rooms(self, serverID):
         server = db.collection('servers').document(serverID)
@@ -134,7 +145,7 @@ class ClientHandler:
 
     def _verify_email(self, code):
         print(code, self.verifyCode)
-        return "successfully" if code == self.verifyCode == code else "wrong code"
+        return "S" if code == self.verifyCode == code else "wrong code"
 
     def _send_verification_email(self, reciver):
         subject = "reset password confirmation email"
@@ -149,7 +160,7 @@ class ClientHandler:
         if not self.user.get().exists:
             return "user is not exists"
         self.user.update({u'username': new_username})
-        return "successfully"
+        return "S"
     
     def _change_password(self, password):
         print(password)
@@ -163,7 +174,7 @@ class ClientHandler:
         print("r u ok?")
         password = hashlib.md5(password.encode()).hexdigest()
         self.user.update({"password": password})
-        return "successfully"
+        return "S"
     
     def _reset_password(self, password):
         user = db.collection('users').document(self.email)
@@ -172,7 +183,7 @@ class ClientHandler:
             return "user is not exists"
         password = hashlib.md5(password.encode()).hexdigest()
         user.update({"password": password})
-        return "successfully"
+        return "S"
         
     
     def _get_friends(self):
@@ -219,12 +230,12 @@ class ClientHandler:
             if userDict['password'] == password:
                 print(userDict)
                 self.user = user
-                return True
-        return False
+                return "S"
+        return "F"
 
     def _logout(self):
         self.user = None
-        return True
+        return "S"
         
     def _register(self, email: str, username: str, password: str) -> bool:
         user = db.collection('users').document(email).get()
@@ -242,7 +253,7 @@ class ClientHandler:
         self.email = email
         self.password = password
         self.username = username
-        return "successfully"
+        return "S"
     
     def _finish_register(self, verificationCode):
         if self.email != None and self.password != None and self.username != None and self.verifyCode != None:
@@ -261,7 +272,7 @@ class ClientHandler:
                 self.username = None
                 self.verifyCode = None
                 print("here2")
-                return "successfully"
+                return "S"
             else:
                 return "wrong verification code"
         else:
@@ -287,12 +298,13 @@ class ClientHandler:
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as smtp:
                 smtp.login(email_sender, email_password)
+                print('logedin')
                 smtp.sendmail(email_sender, reciver, em.as_string())
                 print(f"email sent to: {reciver}")
         except Exception as e:
             print(e)
-            return "email went wrong"
-        return "email sent"
+            return "F"
+        return "S"
 
 
     def _join_server(self, id: str):
@@ -308,29 +320,53 @@ class ClientHandler:
             return "user already in server"
         self.user.update({u'servers': firestore.ArrayUnion([f'{id}'])})
         server.update({u'membersID': firestore.ArrayUnion([f'{email}'])})
-        return "successfully"        
+        return "S"        
     
+    def _get_participants(self):
+        try:
+            ids = self.current_server.get().to_dict()["membersID"]
+            print(ids)
+            membersUsernames = [self._load_username(id) for id in ids ]
+            print(f"{membersUsernames=}")
+
+            myEmail = self.user.get().to_dict()["email"]
+            dictServer = self.current_server.get().to_dict()
+
+            isAdmin = myEmail in dictServer["adminsID"]
+            isOwner = myEmail == dictServer["ownerID"]
+            return f"S|{'*'.join(membersUsernames)}|{isAdmin}|{isOwner}"
+        except Exception as e:
+            print(e) 
+            return f"F"
+
     def _load_room(self, room: str) -> list:
         if not self.current_server:
             return "F|server not set"
         if not self.current_server.get().exists:
             return "F|server not exists"
-        c_room = self.current_server.collection("rooms").document(room).get()
-        if not c_room.exists:
+        c_room = self.current_server.collection("rooms").document(room)
+        if not c_room.get().exists:
             return "F|room not exists"
         
-        messages = c_room.to_dict()["messages"]
+        messages = c_room.get().to_dict()["messages"]
 
         messages.sort(key= lambda x:x["time"])
         
         d_messages = []
+
+        myEmail = self.user.get().to_dict()["email"]
+
+        
         for message in messages:
             del message["time"]
-            message["author"] = self._load_username(message["author"])
-            d_messages.append(json.dumps(message))
+            message["author"] = json.dumps({"isMy": message["author"] == myEmail, "username":self._load_username(message["author"])})
 
-        print("\n\n\n\n\n\n\n")
+            d_messages.append(json.dumps(message))
+            
+
         print(f"{'*'.join(d_messages)}")
+
+        self.current_room = c_room
 
         return f"S|{'*'.join(d_messages)}"
     
@@ -374,23 +410,37 @@ class ClientHandler:
     def _handle_sends(self, type: str, *params) -> bool:
         print("pls work")
         print(f'{type=} | {params=}')
-        match type:
-            case "login":
-                toSend = "{type}|" + ("successfully" if params[0] else "failed") + f"|{params[1]}"
-            case "logout":
-                toSend = "{type}|" + ("successfully" if params[0] else "failed")
-            case "getServers":
-                toSend = f"{type}|{json.dumps(params[0])}"
-            case "getFriends":
-                toSend = f"{type}|{json.dumps(params[0])}"
-            case "loadServer":
-                toSend = f"{type}|{json.dumps[params[0]]}"
-            case _:
-                toSend = f"{type}|{params[0]}"
+        if type in ["getServers", "getFriends", "loadServer"]:
+            toSend = json.dumps(params[0])
+        else:
+            toSend = params[0]
 
-        self.sock.send(cipher.encrypt(toSend.encode()))
-        print(f"{toSend=}")
+        maxChunkLength = 9000
+        # print(f"{toSend=}")
+        toSend = '`'.encode() + cipher.encrypt(toSend.encode())
+        # print(f"{toSend=}")
+        print(f"{len(toSend)=}")
+        if len(toSend) > maxChunkLength:
+            toSendList = self._split_list_to_chuncks(toSend, maxChunkLength)
+
+            # print(toSendList)
+            for toSendItem in toSendList[:-1]:
+                self._send_message(toSendItem + "/".encode())
+            toSend = toSendList[-1] 
+        self._send_message(toSend + "~".encode())
         return True
+    
+    def _send_message(self, message):
+        self.sock.send(message)
+    
+    
+    def _split_list_to_chuncks(self, string: str, chunkLenght: int) -> list:
+        chunks = []
+        try:
+            chunks = [string[i:i+chunkLenght] for i in range(0, len(string), chunkLenght)]
+        except Exception as e:
+            print(e)
+        return chunks
 
 def handle_client(sock, addr):
     c = ClientHandler(sock=sock)
