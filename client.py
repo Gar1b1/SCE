@@ -7,7 +7,7 @@ from threading import Thread
 from cryptography.fernet import Fernet
 import ctypes, os
 from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
-import random, string, math
+import random, string, math, pyperclip
 
 
 curPath = os.getcwd()
@@ -24,7 +24,7 @@ winToaster = WindowsToaster("SCE")
 msgbox = messagebox
 
 # graphic
-global resulations, screenManager
+global resulations, screen_manager
 window = Tk()
 
 global isUser, current_server, toRemember
@@ -34,10 +34,8 @@ ip = "127.0.0.1"
 port = 3339
 global sock
 
-#origin images
 
-
-class screen_manager():
+class ScreenManager():
     def __init__(self, window, current_res):
         self.imgPath = curPath+"/images/"
         self.backgroundColor = "#040030"
@@ -66,6 +64,7 @@ class screen_manager():
         self.tOriginImage = Image.open(f"{self.imgPath}T.png")
         self.vOriginImage = Image.open(f"{self.imgPath}V.png")
         self.sendIconOriginImage = Image.open(f"{self.imgPath}sendIconButton.png")
+        self.shareOriginImage = Image.open(f"{self.imgPath}shareButton.png")
 
         user32 = ctypes.windll.user32
         self.maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
@@ -73,10 +72,15 @@ class screen_manager():
         self.current_res = current_res
 
         self.resize_screen()
-
+    
+    # def should_resize(self):
+    #     return not (self.window.winfo_width() == self.winWidth and self.window.winfo_height() == self.winHeight)
+    
     def resize_screen(self):
+        self.window.update()
         self.winWidth = self.window.winfo_width()
         self.winHeight = self.window.winfo_height()
+        print(f"{self.winWidth=} {self.winHeight=}")
         # texts data
         self.titlesFontSize  = int(self.winWidth/25)
         self.appTextFontSize = int(self.winWidth/65)
@@ -167,6 +171,11 @@ class screen_manager():
         originalSize = self.settingsOriginImage.size
         self.settingsImage = self.settingsOriginImage.resize(self._get_new_size(originalSize, newWidth))
         self.settingsBTNImage = ImageTk.PhotoImage(self.settingsImage)
+
+        #share button
+        originalSize = self.shareOriginImage.size
+        self.shareImage = self.shareOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.shareBTNImage = ImageTk.PhotoImage(self.shareImage)
 
         # dm button
         proportion = 17
@@ -260,7 +269,7 @@ def register(email: str, password: str, username: str):
         
     if successfully:
         notify("sent verification code", "check you email box for your verification code")
-        loadScreen("email validation")
+        load_screen("email validation")
 
     else:
         notify("register failed", data)
@@ -272,7 +281,7 @@ def finish_register(verificationCode):
     if successfully:
         isUser = True
         notify("registered successfully", "welcome to SCE")
-        loadScreen("Home")
+        load_screen("Home")
 
 
 def login(email: str, password: str):
@@ -286,7 +295,7 @@ def login(email: str, password: str):
 
     if successfully:
         isUser=True
-        loadScreen("Home")
+        load_screen("Home")
         notify("login successfully", "welcome back")
         if toRemember:
             location = os.getcwd()+"/user.txt"
@@ -300,13 +309,20 @@ def login(email: str, password: str):
         notify("login failed","user params are inncorect")
 
 def notify(title1, message1):
+    """
+    This function creates a notification with a title and message, and displays it using a Windows
+    toaster and a message box.
+    
+    :param title1: The title of the notification or message box
+    :param message1: The message that will be displayed in the notification or message box
+    """
     try:
         # win11toast.ToastNotificationManager.create_toast_notifier("Python")
         # winToaster2 = InteractableWindowsToaster("SCE")
         newToast = ToastImageAndText1()
         newToast.SetBody(title1 + " | " + message1)
         # newToast.SetHeadline(title1)
-        newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{screenManager.imgPath}sce_logo.png"))
+        newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{screen_manager.imgPath}sce_logo.png"))
         winToaster.show_toast(newToast)
         # newToast.AddInput(ToastInputTextBox("name", "your name", "Alon Garibi"))
         # newToast.AddAction(ToastButton("Submit", "submit"))
@@ -334,7 +350,7 @@ def decrypt_message():
     return cipher.decrypt(waitToConfim()).decode()
 
 def waitToConfim():
-    message = sock.recv(9001)
+    message = sock.recv(100000)
     print(message)
     isFirst = message[:1].decode() == "`"
     isMiddle = message[-1:].decode() == "/"
@@ -353,10 +369,39 @@ def waitToConfim():
         return message
     else:
         notify("message", "didnt went clear")
-        return "error"
+        return "error"#
+# def handle_sends(*arguments):
+#     toSend ="|".join(arguments) + "&"
+#     print(f"{toSend=}")
+#     encrypted_message = cipher.encrypt(toSend.encode())
+#     sock.send(encrypted_message)
+
+#     data = waitToConfim()
+#     print(f"{data=}")
+#     isError = data == "ERROR"
+#     if not isError:
+#         return data
+    
+# def waitToConfim():
+#     data = b""
+#     while True:
+#         try:
+#             chunk = sock.recv(9000)
+#         except Exception as exeption:
+#             print(f"{exeption=}")
+#             notify("ERROR", "Please restart your\napp and try again")
+#             return "ERROR"
+        
+#         # print(chunk)
+#         data += chunk
+#         endSign = cipher.encrypt("~".encode())
+#         if chunk.endswith(endSign):
+#             break
+#     return cipher.decrypt(data()).decode()
+
 
 def clearScreen():
-    for widget in screenManager.window.winfo_children():
+    for widget in screen_manager.window.winfo_children():
         widget.destroy()
 
 def show_password(passwordEntry):
@@ -368,22 +413,22 @@ def show_password(passwordEntry):
 def loadServer(server):
     global current_server
     current_server = server
-    loadScreen("server")
+    load_screen("server")
     # dataOfMessages = handle_sends("loadServer", server)
 
 def temp(a):
     return a
 
-def homeSceen():
+def home_sceen():
     global toRemember
-    dmY = int(screenManager.winHeight/6.5)
-    serversY = int(screenManager.winHeight/3.5)
-    lefSideX = int(screenManager.winWidth/50)
-    dm = Button(screenManager.window, image=screenManager.dmBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("dm"))
+    dmY = int(screen_manager.winHeight/6.5)
+    serversY = int(screen_manager.winHeight/3.5)
+    lefSideX = int(screen_manager.winWidth/50)
+    dm = Button(screen_manager.window, image=screen_manager.dmBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("dm"))
     dm.place(x=lefSideX, y=dmY)
     
-    joinServer = Button(screenManager.window, image=screenManager.joinServerBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Join Server"))
-    joinServer.place(x=screenManager.winWidth-screenManager.joinServerImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1] - screenManager.joinServerImage.size[1] - screenManager.winHeight/30)
+    joinServer = Button(screen_manager.window, image=screen_manager.joinServerBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Join Server"))
+    joinServer.place(x=screen_manager.winWidth-screen_manager.joinServerImage.size[0], y=screen_manager.winHeight-screen_manager.settingsImage.size[1] - screen_manager.joinServerImage.size[1] - screen_manager.winHeight/30)
 
     joinServer.update()
 
@@ -393,101 +438,101 @@ def homeSceen():
     keys = list(servers.keys())
     first = True
     for server in keys:
-        sb = Button(screenManager.window, text=servers[server], bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize * 0.8), "bold"), command=lambda a=server: loadServer(a))
+        sb = Button(screen_manager.window, text=servers[server], bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"), command=lambda a=server: loadServer(a))
         y = serversY
         if not first:
-            y = serversButtons[-1].winfo_y() + serversButtons[-1].winfo_height() + int(screenManager.winHeight/100)
+            y = serversButtons[-1].winfo_y() + serversButtons[-1].winfo_height() + int(screen_manager.winHeight/100)
         first = False
         
         sb.place(x=lefSideX, y= y)
         sb.update()
         serversButtons.append(sb)
-    screenManager.window.update()
+    screen_manager.window.update()
 
-def loginRegisterScreens(screen):
+def login_register_screens(screen):
     global toRemember
-    screenManager.window.update()
+    screen_manager.window.update()
 
-    emailY = int(screenManager.winHeight/3.5)
-    labelX = int(screenManager.winWidth / 4)
+    emailY = int(screen_manager.winHeight/3.5)
+    labelX = int(screen_manager.winWidth / 4)
     getOtherLabel = 0
     
     if screen == "Register":
-        usernameY = emailY + int(screenManager.winHeight/7)
-        passwordY = emailY + int(screenManager.winHeight/3.5)
-        usernameEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize), "bold"))
-        usernameEntry.place(x=labelX, y=usernameY, width=screenManager.mainEntrysWidth)
-        usernameLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"),
+        usernameY = emailY + int(screen_manager.winHeight/7)
+        passwordY = emailY + int(screen_manager.winHeight/3.5)
+        usernameEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize), "bold"))
+        usernameEntry.place(x=labelX, y=usernameY, width=screen_manager.mainEntrysWidth)
+        usernameLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"),
                               text="Username:")
-        usernameLabel.place(x=labelX, y=usernameY - int(screenManager.winHeight/17))
+        usernameLabel.place(x=labelX, y=usernameY - int(screen_manager.winHeight/17))
         
-        getOtherLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize * 0.8), "bold"),
+        getOtherLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"),
                               text="Already have account?")
-        getOtherButton = Button(screenManager.window, image=screenManager.smallLoginBTNImage, bd=0, highlightthickness=0,
-                                activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("login"))
-        submitWidth = screenManager.registerImage.size[0]
-        submitX = int(screenManager.mainEntrysWidth/2) + labelX - (submitWidth)/2
+        getOtherButton = Button(screen_manager.window, image=screen_manager.smallLoginBTNImage, bd=0, highlightthickness=0,
+                                activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("login"))
+        submitWidth = screen_manager.registerImage.size[0]
+        submitX = int(screen_manager.mainEntrysWidth/2) + labelX - (submitWidth)/2
         
 
     else:
-        passwordY = emailY + int(screenManager.winHeight/7)
+        passwordY = emailY + int(screen_manager.winHeight/7)
 
-        getOtherLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize * 0.8), "bold"),
+        getOtherLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"),
                               text="Still don't have account?")
-        getOtherButton = Button(screenManager.window, image=screenManager.smallRegisterBTNImage, bd=0, highlightthickness=0,
-                                activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Register"))
+        getOtherButton = Button(screen_manager.window, image=screen_manager.smallRegisterBTNImage, bd=0, highlightthickness=0,
+                                activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Register"))
         
-        submitWidth = screenManager.loginImage.size[0]
-        submitX = int(screenManager.mainEntrysWidth/2) + labelX - (submitWidth)/2
+        submitWidth = screen_manager.loginImage.size[0]
+        submitX = int(screen_manager.mainEntrysWidth/2) + labelX - (submitWidth)/2
 
-    emailLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text="Email:")
-    emailLabel.place(x=labelX, y=emailY - (screenManager.winHeight/17))
+    emailLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text="Email:")
+    emailLabel.place(x=labelX, y=emailY - (screen_manager.winHeight/17))
 
-    emailEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"))
-    emailEntry.place(x=labelX, y=emailY, width=screenManager.mainEntrysWidth)
+    emailEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"))
+    emailEntry.place(x=labelX, y=emailY, width=screen_manager.mainEntrysWidth)
 
-    passwordLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text="Password:")
-    passwordLabel.place(x=labelX, y=passwordY - int(screenManager.winHeight/17))
+    passwordLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text="Password:")
+    passwordLabel.place(x=labelX, y=passwordY - int(screen_manager.winHeight/17))
 
-    passwordEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), show="*")
-    passwordEntry.place(x=labelX, y=passwordY, width=screenManager.mainEntrysWidth)
+    passwordEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), show="*")
+    passwordEntry.place(x=labelX, y=passwordY, width=screen_manager.mainEntrysWidth)
 
-    showPasswordButton = Checkbutton(screenManager.window, text="show password", bg=screenManager.backgroundColor, fg=screenManager.secondColor,
-                                     highlightthickness=0, activebackground=screenManager.backgroundColor, bd=0,
-                                     font=("Airal", int(0.7 * screenManager.appTextFontSize), "bold"), command= lambda: show_password(passwordEntry))
-    showPasswordButton.place(x=labelX, y=passwordY + int(screenManager.winHeight/13))
-    screenManager.window.update()
+    showPasswordButton = Checkbutton(screen_manager.window, text="show password", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor,
+                                     highlightthickness=0, activebackground=screen_manager.backgroundColor, bd=0,
+                                     font=("Airal", int(0.7 * screen_manager.appTextFontSize), "bold"), command= lambda: show_password(passwordEntry))
+    showPasswordButton.place(x=labelX, y=passwordY + int(screen_manager.winHeight/13))
+    screen_manager.window.update()
 
     if screen == "Register":
-        submitY = showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screenManager.winHeight/40)
+        submitY = showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screen_manager.winHeight/40)
 
-        submitButton = Button(screenManager.window, image=screenManager.registerBTNImage, bd=0, highlightthickness=0,
-                activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command= lambda: register(emailEntry.get(), passwordEntry.get(), usernameEntry.get()))
+        submitButton = Button(screen_manager.window, image=screen_manager.registerBTNImage, bd=0, highlightthickness=0,
+                activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command= lambda: register(emailEntry.get(), passwordEntry.get(), usernameEntry.get()))
         submitButton.place(x=submitX, y=submitY)
     else:
         toRemember = False
-        remmeberMeButton = Checkbutton(screenManager.window, text="remmeber me", bg=screenManager.backgroundColor, fg=screenManager.secondColor, highlightthickness=0, activebackground=screenManager.backgroundColor, bd=0,
-                                       font=("Airal", int(0.7 * screenManager.appTextFontSize), "bold"), command=toggleToRemember)
+        remmeberMeButton = Checkbutton(screen_manager.window, text="remmeber me", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, highlightthickness=0, activebackground=screen_manager.backgroundColor, bd=0,
+                                       font=("Airal", int(0.7 * screen_manager.appTextFontSize), "bold"), command=toggleToRemember)
 
-        remmeberMeButton.place(x=labelX, y=showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screenManager.winHeight/40))
+        remmeberMeButton.place(x=labelX, y=showPasswordButton.winfo_y() + showPasswordButton.winfo_height() + int(screen_manager.winHeight/40))
     
-        screenManager.window.update()
+        screen_manager.window.update()
         
-        submitY = remmeberMeButton.winfo_y() + remmeberMeButton.winfo_height() + int(screenManager.winHeight/40)
+        submitY = remmeberMeButton.winfo_y() + remmeberMeButton.winfo_height() + int(screen_manager.winHeight/40)
 
-        submitButton = Button(screenManager.window, image=screenManager.loginBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor,
-                              bg=screenManager.backgroundColor, command= lambda: login(emailEntry.get(), passwordEntry.get()))
+        submitButton = Button(screen_manager.window, image=screen_manager.loginBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor,
+                              bg=screen_manager.backgroundColor, command= lambda: login(emailEntry.get(), passwordEntry.get()))
         submitButton.place(x=submitX, y=submitY)
-        screenManager.window.update()
+        screen_manager.window.update()
 
-        width = int(screenManager.winWidth/5)
-        forgotPassword = Button(screenManager.window, text="Forgot Password", bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), command= lambda: loadScreen("forgot password"))
-        forgotPassword.place(x = submitButton.winfo_x() + int(submitButton.winfo_width()/2) - int(width/2), y= submitButton.winfo_y() + submitButton.winfo_height() + int(screenManager.winHeight/20), width=width)
+        width = int(screen_manager.winWidth/5)
+        forgotPassword = Button(screen_manager.window, text="Forgot Password", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), command= lambda: load_screen("forgot password"))
+        forgotPassword.place(x = submitButton.winfo_x() + int(submitButton.winfo_width()/2) - int(width/2), y= submitButton.winfo_y() + submitButton.winfo_height() + int(screen_manager.winHeight/20), width=width)
 
-    gobx = submitX + int(screenManager.winWidth / 2.5)
-    getOtherLabel.place(x= gobx, y=(submitY - (screenManager.winHeight/24)))
-    getOtherButton.place(x=gobx - int(screenManager.winWidth/60), y=submitY)
-    screenManager.window.update()
+    gobx = submitX + int(screen_manager.winWidth / 2.5)
+    getOtherLabel.place(x= gobx, y=(submitY - (screen_manager.winHeight/24)))
+    getOtherButton.place(x=gobx - int(screen_manager.winWidth/60), y=submitY)
+    screen_manager.window.update()
 
     if screen == "login":
         location = os.getcwd()+"/user.txt"
@@ -502,31 +547,31 @@ def toggleToRemember():
     global toRemember
     toRemember = not toRemember
 
-def settingsScreen():
+def settings_screen():
     global resulations, isUser
 
-    LabelX = int(screenManager.winWidth/10)
-    resulationLabelY = int(screenManager.winHeight/5.5)
-    resulationLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text="Resulation:")
+    LabelX = int(screen_manager.winWidth/10)
+    resulationLabelY = int(screen_manager.winHeight/5.5)
+    resulationLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text="Resulation:")
     resulationLabel.place(x=LabelX, y=resulationLabelY)
     resulationButtons = []
 
     for i, resulation in enumerate(resulations):
-        rb = Button(screenManager.window, text=resulations[i], bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize * 0.9), "bold"), command=lambda a=resulation: change_screen_resulation("settings", a))
+        rb = Button(screen_manager.window, text=resulations[i], bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.9), "bold"), command=lambda a=resulation: change_screen_resulation("settings", a))
         rb.pack(anchor=N)
         rb.update()
         bh = rb.winfo_height()
-        max = ((resulationLabelY + resulationLabel.winfo_height() + int(screenManager.winHeight/50)) + (int(screenManager.winHeight/50) + rb.winfo_height()) * i)
-        rb.place(x=LabelX + int (screenManager.winWidth/ 50), y = max)
+        max = ((resulationLabelY + resulationLabel.winfo_height() + int(screen_manager.winHeight/50)) + (int(screen_manager.winHeight/50) + rb.winfo_height()) * i)
+        rb.place(x=LabelX + int (screen_manager.winWidth/ 50), y = max)
         rb.update()
         resulationButtons.append(rb)
     if isUser:
-        logout = Button(screenManager.window, text="Logout", bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), command=logout_user)
-        logout.place(x=LabelX, y= max + rb.winfo_height() + int(screenManager.winHeight/25))
+        logout = Button(screen_manager.window, text="Logout", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), command=logout_user)
+        logout.place(x=LabelX, y= max + rb.winfo_height() + int(screen_manager.winHeight/25))
 
-        screenManager.window.update()
-        chnageUser = Button(screenManager.window, text="change user data", bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), command = lambda: loadScreen("change user"))
-        chnageUser.place(x=LabelX, y = logout.winfo_y() + logout.winfo_height() + int(screenManager.winHeight/25))
+        screen_manager.window.update()
+        chnageUser = Button(screen_manager.window, text="change user data", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), command = lambda: load_screen("change user"))
+        chnageUser.place(x=LabelX, y = logout.winfo_y() + logout.winfo_height() + int(screen_manager.winHeight/25))
 
     # resulation.place(x=0, y=0)
     
@@ -538,94 +583,90 @@ def logout_user():
         location = os.getcwd()+"/user.txt"
         with open(location,'r+') as file:
             file.truncate(0)
-        loadScreen("login")
+        load_screen("login")
     else:
         print("error")
 
 def change_screen_resulation(screen, res):
-    screenManager.setCurrentRes(res)
+    screen_manager.setCurrentRes(res)
 
     if res == "fullscreen":
-        screenManager.window.attributes('-fullscreen', True)       
+        screen_manager.window.attributes('-fullscreen', True)       
     else:
-        screenManager.window.attributes('-fullscreen', False)       
-        screenManager.window.geometry(res)
+        screen_manager.window.attributes('-fullscreen', False)       
+        screen_manager.window.geometry(res)
 
-    screenManager.window.update()
-    loadScreen(screen)
+    screen_manager.resize_screen()
+    load_screen(screen)
 
-def loadScreen(screen):
+def load_screen(screen):
     clearScreen()
 
 
 
-    screenManager.window.update()
+    screen_manager.window.update()
 
-    screenManager.resize_screen()
+    loadBasicScreen(screen_manager.window, screen)
 
-    loadBasicScreen(screenManager.window, screen)
-
-    screenManager.window.update()
+    screen_manager.window.update()
 
     print(screen)
     
     match screen:
         case "Register":
-            loginRegisterScreens(screen)
+            login_register_screens(screen)
         case "login":
-            loginRegisterScreens(screen)
+            login_register_screens(screen)
         case "Home":
-            homeSceen()
+            home_sceen()
         case "settings":
-            settingsScreen()
+            settings_screen()
         case "Create Server":
-            createServerScreen()
+            create_server_screen()
         case "change user":
-            changeUserDataScreen()
+            change_user_data_screen()
         case "dm":
             DMScreen()
         case "server":
             server_screen()
         case "forgot password":
-            forgotPasswordScreen()
+            forgot_password_screen()
         case _:
             defualt_screen(screen)
 
-def forgotPasswordScreen():
-    emailY = int(screenManager.winHeight/3.75)
+def forgot_password_screen():
+    email_y = int(screen_manager.window_height / 3.75)
+    labels_x = int((screen_manager.window_width - screen_manager.main_entry_width) / 2)
 
-    labelsX = int((screenManager.winWidth - screenManager.mainEntrysWidth)/2)
-    
-    emailEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"))
-    emailEntry.place(x= labelsX, y=emailY, width=screenManager.mainEntrysWidth)
-    emailEntry.update()
-    emailLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text="Email:")
-    emailLabel.place(x= labelsX, y=emailEntry.winfo_y() - (screenManager.winHeight/20))
-    # emailLabel.update()
+    email_entry = Entry(screen_manager.window, bg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"))
+    email_entry.place(x=labels_x, y=email_y, width=screen_manager.main_entry_width)
+    email_entry.update()
 
-    sendY = emailEntry.winfo_y() + emailEntry.winfo_height() + int(screenManager.winHeight/25)
-    sendButton = Button(screenManager.window, image=screenManager.sendBTNImage, bd=0, highlightthickness=0,
-                activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: sendForgotPasswordEmail(emailEntry.get()))
-    sendButton.place(x= int((screenManager.winWidth - screenManager.sendImage.size[0])/2), y= sendY)
-    
-    sendButton.update()
+    email_label = Label(screen_manager.window, bg=screen_manager.background_color, fg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"), text="Email:")
+    email_label.place(x=labels_x, y=email_entry.winfo_y() - (screen_manager.window_height / 20))
+    email_label.update()
 
-    resetCodeY = sendButton.winfo_y() + sendButton.winfo_height() + int(screenManager.winHeight/15)
+    send_y = email_entry.winfo_y() + email_entry.winfo_height() + int(screen_manager.window_height / 25)
+    send_button = Button(screen_manager.window, image=screen_manager.send_button_image, bd=0, highlightthickness=0,
+                activebackground=screen_manager.background_color, bg=screen_manager.background_color, command=lambda: sendForgotPasswordEmail(email_entry.get()))
+    send_button.place(x=int((screen_manager.window_width - screen_manager.send_button_image.size[0]) / 2), y=send_y)
+    send_button.update()
 
-    resetCodeLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"),
+    reset_code_y = send_button.winfo_y() + send_button.winfo_height() + int(screen_manager.window_height / 15)
+
+    reset_code_label = Label(screen_manager.window, bg=screen_manager.background_color, fg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"),
                             text="Verification Code:")
-    resetCodeLabel.place(x=labelsX, y=resetCodeY)
+    reset_code_label.place(x=labels_x, y=reset_code_y)
+    reset_code_label.update()
 
-    resetCodeLabel.update()
+    reset_code_entry = Entry(screen_manager.window, bg=screen_manager.second_color, font=("Arial", int(screen_manager.app_text_font_size), "bold"))
+    reset_code_entry.place(x=labels_x, y=reset_code_label.winfo_y() + reset_code_label.winfo_height() + int(screen_manager.window_height / 100), width=screen_manager.main_entry_width)
+    reset_code_entry.update()
 
-    resetCodeEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize), "bold"))
-    resetCodeEntry.place(x=labelsX, y=resetCodeLabel.winfo_y() + resetCodeLabel.winfo_height() + int(screenManager.winHeight/100), width=screenManager.mainEntrysWidth)
+    submit_button = Button(screen_manager.window, image=screen_manager.verify_button_image, bd=0, highlightthickness=0,
+                activebackground=screen_manager.background_color, bg=screen_manager.background_color, comman=lambda: verifyEmail(reset_code_entry.get()))
+    submit_button.place(x=send_button.winfo_x(), y=reset_code_entry.winfo_y() + reset_code_entry.winfo_height() + int(screen_manager.window_height / 25))
 
-    resetCodeEntry.update()
-
-    submitButton = Button(screenManager.window, image=screenManager.verifyBTNImage, bd=0, highlightthickness=0,
-                activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: verifyEmail(resetCodeEntry.get()))
-    submitButton.place(x=sendButton.winfo_x(), y=resetCodeEntry.winfo_y() + resetCodeEntry.winfo_height() + int(screenManager.winHeight/25))
 
 def sendForgotPasswordEmail(email):
     d = handle_sends("send verification", email)
@@ -641,22 +682,26 @@ def verifyEmail(verficationCode):
     successfully = data[0] == "S"
 
     if successfully:
-        loadScreen("reset password")
+        load_screen("reset password")
     else:
         notify("wrong code", "your verification code is wrong, please check again")
 
 class server_screen():
     def __init__(self):
         self.isMessages = False
+        self.maxMembersInLine = 3
         self.serverScreen()
+        
 
     def serverScreen(self):
         self.current_server = current_server
+        shareButton = Button(screen_manager.window, image=screen_manager.shareBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: self.copy_server_id(self.current_server))
+        shareButton.place(x=screen_manager.winWidth - screen_manager.shareImage.size[0], y = screen_manager.winHeight - screen_manager.settingsImage.size[1] - screen_manager.shareImage.size[1])
         # clearScreen()
-        self.frameYPos = max(screenManager.titleLowestY, screenManager.homeImage.size[1])
+        self.frameYPos = max(screen_manager.titleLowestY, screen_manager.homeImage.size[1])
         # frame.pack(side=LEFT, fill=Y, expand=True)
-        self.width = screenManager.winWidth - screenManager.settingsImage.size[0]
-        self.height = screenManager.winHeight - self.frameYPos
+        self.width = screen_manager.winWidth - screen_manager.settingsImage.size[0]
+        self.height = screen_manager.winHeight - self.frameYPos
         self.roomsWidth = self.width * 0.15
         self.roomsX = 0
         self.loadRoomsCanvas()
@@ -670,13 +715,18 @@ class server_screen():
         self.participantsX = self.messagesWidth + self.roomsWidth
         self.loadParticipantsCanvas()
 
+    def copy_server_id(self, server_id):
+        print(f"server id is: {server_id}")
+        pyperclip.copy(server_id)
+        notify("link copied", "the link of this server copied\nshare the code with who you want to join the server")
+
     def loadRoomsCanvas(self):
-        self.roomsFrame = Frame(screenManager.window)
+        self.roomsFrame = Frame(screen_manager.window)
 
         self.roomsFrame.place(x=self.roomsX, y=self.frameYPos, width=self.roomsWidth, height=self.height)
         self.roomsFrame.update()
         
-        self.roomsCanvas = Canvas(self.roomsFrame, bg=screenManager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screenManager.backgroundColor, width=self.roomsFrame.winfo_width(),height=self.roomsFrame.winfo_height())
+        self.roomsCanvas = Canvas(self.roomsFrame, bg=screen_manager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screen_manager.backgroundColor, width=self.roomsFrame.winfo_width(),height=self.roomsFrame.winfo_height())
         self.roomsCanvas.pack(side=LEFT, expand=True, fill=BOTH)
         
         self.roomsScrollBar = ttk.Scrollbar(self.roomsCanvas, orient=VERTICAL, command=self.roomsCanvas.yview, cursor= "double_arrow")
@@ -686,7 +736,7 @@ class server_screen():
 
         self.roomsCanvas.bind("<Configure>", lambda e: self.roomsCanvas.configure(scrollregion=self.roomsCanvas.bbox("all")))
         
-        self.secRoomsFrame = Frame(self.roomsCanvas, bg=screenManager.thirdColor)
+        self.secRoomsFrame = Frame(self.roomsCanvas, bg=screen_manager.thirdColor)
         self.roomsCanvas.create_window((0, 0), window=self.secRoomsFrame, anchor=NW)
 
         # current_room = "mainRoom"
@@ -696,7 +746,7 @@ class server_screen():
         print(self.rooms)
         isSuccessful = self.rooms[0] == "S"
         if not isSuccessful:
-            loadScreen("home")
+            load_screen("home")
             return
         self.textRooms = self.rooms[1]
         self.voiceRooms =self.rooms[2]
@@ -710,7 +760,7 @@ class server_screen():
         self.lastButtonY = 0
         # longest = 0
         if self.textRooms:
-            self.textRoomsLabel = Label(self.roomsCanvas, text = "Text Rooms:", bg=screenManager.thirdColor, highlightthickness=0, font=("Airal", screenManager.roomsNamesTextSize, "bold"), fg=screenManager.secondColor)
+            self.textRoomsLabel = Label(self.roomsCanvas, text = "Text Rooms:", bg=screen_manager.thirdColor, highlightthickness=0, font=("Airal", screen_manager.roomsNamesTextSize, "bold"), fg=screen_manager.secondColor)
             self.textRoomsLabel.place(x=0, y=0)
             self.textRoomsLabel.update()
             
@@ -718,24 +768,24 @@ class server_screen():
 
             for room in self.textRooms:   
                 if room != "":
-                    a = Button(self.roomsCanvas, text=" "+room, image=screenManager.tBTNImage, compound=LEFT, bg=screenManager.thirdColor, highlightthickness=0, font=("Airal", screenManager.roomsNamesTextSize, "bold"), fg=screenManager.secondColor, command=lambda a = room: self.loadTextRoom(a))
-                    a.place(x=0, y = int(screenManager.winHeight/70) + self.lastButtonY)
+                    a = Button(self.roomsCanvas, text=" "+room, image=screen_manager.tBTNImage, compound=LEFT, bg=screen_manager.thirdColor, highlightthickness=0, font=("Airal", screen_manager.roomsNamesTextSize, "bold"), fg=screen_manager.secondColor, command=lambda a = room: self.loadTextRoom(a))
+                    a.place(x=0, y = int(screen_manager.winHeight/70) + self.lastButtonY)
                     a.update()
                     self.lastButtonY = a.winfo_y() + a.winfo_height()
                     # longest = max(longest, a.winfo_width())
                     # longest = min(longest, roomsWidth)
 
         if self.voiceRooms:
-            self.voiceRoomsLabel = Label(self.roomsCanvas, text = "Voice Rooms:", bg=screenManager.thirdColor, highlightthickness=0, font=("Airal", screenManager.roomsNamesTextSize, "bold"), fg=screenManager.secondColor)
-            self.voiceRoomsLabel.place(x=0, y=self.lastButtonY + screenManager.winHeight/70)
+            self.voiceRoomsLabel = Label(self.roomsCanvas, text = "Voice Rooms:", bg=screen_manager.thirdColor, highlightthickness=0, font=("Airal", screen_manager.roomsNamesTextSize, "bold"), fg=screen_manager.secondColor)
+            self.voiceRoomsLabel.place(x=0, y=self.lastButtonY + screen_manager.winHeight/70)
             self.voiceRoomsLabel.update()
             self.lastButtonY = self.voiceRoomsLabel.winfo_y() + self.voiceRoomsLabel.winfo_height()
             self.voiceRoomsLabel.update()
 
             for room in self.voiceRooms:
                 if room != "":
-                    a = Button(self.roomsCanvas, text=" "+room, image=screenManager.vBTNImage, compound=LEFT, bg=screenManager.thirdColor, highlightthickness=0, font=("Airal", screenManager.roomsNamesTextSize, "bold"), fg=screenManager.secondColor)
-                    a.place(x=0, y = int(screenManager.winHeight/70) + self.lastButtonY)
+                    a = Button(self.roomsCanvas, text=" "+room, image=screen_manager.vBTNImage, compound=LEFT, bg=screen_manager.thirdColor, highlightthickness=0, font=("Airal", screen_manager.roomsNamesTextSize, "bold"), fg=screen_manager.secondColor, command=lambda a = room: self.loadVoiceRoom(a))
+                    a.place(x=0, y = int(screen_manager.winHeight/70) + self.lastButtonY)
                     a.update()
                     self.lastButtonY = a.winfo_y() + a.winfo_height()
                     # longest = max(longest, a.winfo_width())
@@ -746,12 +796,12 @@ class server_screen():
         # roomsScrollBar.pack(side=RIGHT, fill=Y)
 
     def loadMessagesCanvas(self):
-        self.messagesFrame = Frame(screenManager.window)
+        self.messagesFrame = Frame(screen_manager.window)
 
         self.messagesFrame.place(x=self.messagesX, y=self.frameYPos, width=self.messagesWidth, height=self.height)
         self.messagesFrame.update()
         
-        self.messagesCanvas = Canvas(self.messagesFrame, bg=screenManager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screenManager.backgroundColor, width=self.messagesFrame.winfo_width(),height=self.messagesFrame.winfo_height())
+        self.messagesCanvas = Canvas(self.messagesFrame, bg=screen_manager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screen_manager.backgroundColor, width=self.messagesFrame.winfo_width(),height=self.messagesFrame.winfo_height())
         self.messagesCanvas.pack(side=LEFT, expand=True, fill=BOTH)
         
         self.messagesScrollbar = ttk.Scrollbar(self.messagesCanvas, orient=VERTICAL, command=self.messagesCanvas.yview, cursor= "double_arrow")
@@ -760,10 +810,10 @@ class server_screen():
         self.messagesCanvas.configure(yscrollcommand=self.messagesScrollbar.set)
         self.messagesCanvas.bind("<Configure>", lambda e: self.roomsCanvas.configure(scrollregion=self.messagesCanvas.bbox("all")))
         
-        self.secMessagesFrame = Frame(self.messagesCanvas, bg=screenManager.thirdColor)
+        self.secMessagesFrame = Frame(self.messagesCanvas, bg=screen_manager.thirdColor)
         self.messagesCanvas.create_window((0, 0), window=self.secMessagesFrame, anchor=NW)
 
-        screenManager.window.update()
+        screen_manager.window.update()
 
     def load_messages(self):
         if self.isMessages:
@@ -795,15 +845,15 @@ class server_screen():
                         lines[-1][:-1]
                 lines.reverse()
                 lines="\n".join(lines)
-                l = Label(self.secMessagesFrame, text= messageAuthor+":", bd=0, highlightthickness=0, bg=screenManager.thirdColor, font=("Arial", screenManager.messagesFontSize, "bold"), fg = screenManager.secondColor)
+                l = Label(self.secMessagesFrame, text= messageAuthor+":", bd=0, highlightthickness=0, bg=screen_manager.thirdColor, font=("Arial", screen_manager.messagesFontSize, "bold"), fg = screen_manager.secondColor)
                 l.grid(row=lastButtonY, column=0, sticky=W)
                 labels.append(l)
-                b = Button(self.secMessagesFrame, text= lines, bd=0, justify=LEFT, highlightthickness=0, bg=screenManager.thirdColor, font=("Arial", screenManager.messagesFontSize, "bold"), fg = screenManager.secondColor, compound="c", width= maxLength, anchor=W, command=lambda: print("yay"), disabledforeground=screenManager.secondColor)
+                b = Button(self.secMessagesFrame, text= lines, bd=0, justify=LEFT, highlightthickness=0, bg=screen_manager.thirdColor, font=("Arial", screen_manager.messagesFontSize, "bold"), fg = screen_manager.secondColor, compound="c", width= maxLength, anchor=W, command=lambda: print("yay"), disabledforeground=screen_manager.secondColor)
                 if not isMessageIsMy:
                     b.configure(state=DISABLED)
                 b.grid(row=lastButtonY + 1, column=10, sticky=W)
                 buttons.append(b)
-                space = Label(self.secMessagesFrame, text="", bd=0, bg=screenManager.thirdColor)
+                space = Label(self.secMessagesFrame, text="", bd=0, bg=screen_manager.thirdColor)
                 space.grid(row=lastButtonY+2, column=0, sticky=W)
                 lastButtonY += 3
                 self.secMessagesFrame.update()
@@ -813,16 +863,16 @@ class server_screen():
                 #     s_d = messageData.split(" ")
                 #     lines = 
                 #     while b.winfo_width() > self.messagesWidth:
-        screenManager.window.update()
+        screen_manager.window.update()
 
         
     def loadParticipantsCanvas(self):
-        self.participantsFrame = Frame(screenManager.window)
+        self.participantsFrame = Frame(screen_manager.window)
 
         self.participantsFrame.place(x=self.participantsX, y=self.frameYPos, width=self.participantsWidth, height=self.height)
         self.participantsFrame.update()
         
-        self.participantsCanvas = Canvas(self.participantsFrame, bg=screenManager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screenManager.backgroundColor, width=self.participantsFrame.winfo_width(),height=self.participantsFrame.winfo_height())
+        self.participantsCanvas = Canvas(self.participantsFrame, bg=screen_manager.thirdColor, bd=0, highlightthickness=0, highlightcolor=screen_manager.backgroundColor, width=self.participantsFrame.winfo_width(),height=self.participantsFrame.winfo_height())
         self.participantsCanvas.pack(side=LEFT, expand=True, fill=BOTH)
         
         self.participantsScrollBar = ttk.Scrollbar(self.participantsCanvas, orient=VERTICAL, command=self.participantsCanvas.yview, cursor= "double_arrow")
@@ -831,7 +881,7 @@ class server_screen():
         self.participantsCanvas.configure(yscrollcommand=self.participantsScrollBar.set)
         self.participantsCanvas.bind("<Configure>", lambda e: self.participantsCanvas.configure(scrollregion=self.participantsCanvas.bbox("all")))
         
-        self.secParticipantsFrame = Frame(self.participantsCanvas, bg=screenManager.thirdColor)
+        self.secParticipantsFrame = Frame(self.participantsCanvas, bg=screen_manager.thirdColor)
         self.participantsCanvas.create_window((0, 0), window=self.secParticipantsFrame, anchor=N)
         data = handle_sends("get participants").split("|")
         print(f"{data=}")
@@ -840,10 +890,16 @@ class server_screen():
             self.isAdmin = bool(data[2])
             self.isOwner = bool(data[3])
         for i, participant in enumerate(self.participants):
-            label = Label(self.secParticipantsFrame, bg=screenManager.thirdColor, fg=screenManager.secondColor, font=("Airal", screenManager.participantsFontSize, "bold"), text=participant)
+            label = Label(self.secParticipantsFrame, bg=screen_manager.thirdColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.participantsFontSize, "bold"), text=participant)
             label.grid(row=i, column=0, sticky=W)
         
     def loadTextRoom(self, room):
+        """
+        This function loads a text room and displays messages and a message entry field.
+        
+        :param room: The parameter "room" is the identifier of the room that needs to be loaded. It is used
+        to retrieve the messages and other information related to that room
+        """
         self.current_room = room
         data = handle_sends("load room", room).split("|")
         success = data[0] == "S"
@@ -852,18 +908,38 @@ class server_screen():
             print(self.messages)
             self.isMessages = True
             self.load_messages()
-            self.messageEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", int(screenManager.messagesFontSize), "bold"))
+            self.messageEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", int(screen_manager.messagesFontSize), "bold"))
             self.messageEntry.pack()
             self.messageEntry.update()
-            self.messageEntry.place(x=self.messagesX, y=screenManager.winHeight-self.messageEntry.winfo_height(), width=self.messagesFrame.winfo_width()-1.5*self.messagesScrollbar.winfo_width()-screenManager.sendIconImage.size[0])
+            self.messageEntry.place(x=self.messagesX, y=screen_manager.winHeight-self.messageEntry.winfo_height(), width=self.messagesFrame.winfo_width()-1.5*self.messagesScrollbar.winfo_width()-screen_manager.sendIconImage.size[0])
             self.messageEntry.update()
-            screenManager.window.update()
-            sendButton = Button(screenManager.window, image=screenManager.sendIconBTNImage, bg=screenManager.thirdColor, command=lambda: self.send_message(self.messageEntry.get()))
-            sendButton.place(x=self.messagesFrame.winfo_x() + self.messageEntry.winfo_width(), y = screenManager.winHeight-screenManager.sendIconImage.size[1])
+            screen_manager.window.update()
+            sendButton = Button(screen_manager.window, image=screen_manager.sendIconBTNImage, bg=screen_manager.thirdColor, command=lambda: self.send_message(self.messageEntry.get()))
+            sendButton.place(x=self.messagesFrame.winfo_x() + self.messageEntry.winfo_width(), y = screen_manager.winHeight-screen_manager.sendIconImage.size[1])
             self.messagesCanvas.update()
 
         else:
             notify("load room error", data[1])
+    
+
+    def loadVoiceRoom(self, room):
+        self.current_room = room
+        data = handle_sends("load voice room").split("|")
+        success = data[0] == "S"
+        if success:
+            m_threads = {}
+            inVC = data[1].split("*")
+            for i, m_id in enumerate(inVC):
+                line = math.floor(i/self.maxMembersInLine)
+                row = i % self.maxMembersInLine
+                mt = Thread(target=self.load_member_camera, args=(line, row, m_id))
+                mt.start()
+                m_threads[m_id] = mt 
+            for t in m_threads:
+                pass
+
+    def load_member_camera(self,line, row):
+        pass
 
     def send_message(self, message):
         success = handle_sends("add message", message) == "S"
@@ -871,60 +947,60 @@ class server_screen():
 
 def loadBasicScreen(window2, screen):
 
-    xButton = Button(window2, image=screenManager.XBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=close, cursor= "X_cursor")
+    xButton = Button(window2, image=screen_manager.XBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=close, cursor= "X_cursor")
     xButton.pack(anchor=NE)
     
-    titleLabel = Label(window2, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.titlesFontSize, "bold"), text=screen.upper())
-    titleLabel.place(x=screenManager.titleX, y=int(screenManager.winHeight/29), width=screenManager.titleWidth)
+    titleLabel = Label(window2, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.titlesFontSize, "bold"), text=screen.upper())
+    titleLabel.place(x=screen_manager.titleX, y=int(screen_manager.winHeight/29), width=screen_manager.titleWidth)
     titleLabel.update()
-    screenManager.setTitleLowestY(titleLabel.winfo_y() + titleLabel.winfo_height())
+    screen_manager.setTitleLowestY(titleLabel.winfo_y() + titleLabel.winfo_height())
 
-    homeButton = Button(window2, image=screenManager.homeBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Home"))
+    homeButton = Button(window2, image=screen_manager.homeBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Home"))
     if not isUser:
-        homeButton.config(command=lambda: loadScreen("login"))        
+        homeButton.config(command=lambda: load_screen("login"))        
     homeButton.place(x=0, y=0)
     
     if screen != "settings":
-        settings = Button(window2, image=screenManager.settingsBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("settings"))
-        settings.place(x=screenManager.winWidth-screenManager.settingsImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1])
+        settings = Button(window2, image=screen_manager.settingsBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("settings"))
+        settings.place(x=screen_manager.winWidth-screen_manager.settingsImage.size[0], y=screen_manager.winHeight-screen_manager.settingsImage.size[1])
         settings.update()
 
     
 
-def changeUserDataScreen():
-    usernameY = int(1.7 * screenManager.winHeight / 4)
-    passwordY = usernameY + int(screenManager.winHeight/7)
-    labelX = int(screenManager.winWidth / 4)
+def change_user_data_screen():
+    usernameY = int(1.7 * screen_manager.winHeight / 4)
+    passwordY = usernameY + int(screen_manager.winHeight/7)
+    labelX = int(screen_manager.winWidth / 4)
 
-    submitX = screenManager.mainEntrysWidth - 100
-    submitY = passwordY + int(screenManager.winWidth/12)
+    submitX = screen_manager.mainEntrysWidth - 100
+    submitY = passwordY + int(screen_manager.winWidth/12)
 
     changeUsernameLabelText = "New Username:"
     changePasswordLabelText = "New Password:"
     explainText = "not all required".title()
-    explainLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("assitant", screenManager.appTextFontSize, "bold"), text=explainText)
-    explainLabel.place(x=0, y=usernameY - int(screenManager.winHeight/7), width=screenManager.winWidth)
+    explainLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("assitant", screen_manager.appTextFontSize, "bold"), text=explainText)
+    explainLabel.place(x=0, y=usernameY - int(screen_manager.winHeight/7), width=screen_manager.winWidth)
 
-    changeUsernameLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"),
+    changeUsernameLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"),
                          text=changeUsernameLabelText)
-    changeUsernameLabel.place(x=labelX, y=usernameY - int(screenManager.winHeight/17))
+    changeUsernameLabel.place(x=labelX, y=usernameY - int(screen_manager.winHeight/17))
     
-    changeUsernameEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize), "bold"))
-    changeUsernameEntry.place(x=labelX, y=usernameY, width=screenManager.mainEntrysWidth)
+    changeUsernameEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize), "bold"))
+    changeUsernameEntry.place(x=labelX, y=usernameY, width=screen_manager.mainEntrysWidth)
 
-    ChangePasswordLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text=changePasswordLabelText)
-    ChangePasswordLabel.place(x=labelX, y=passwordY - int(screenManager.winHeight/17))
+    ChangePasswordLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text=changePasswordLabelText)
+    ChangePasswordLabel.place(x=labelX, y=passwordY - int(screen_manager.winHeight/17))
     
-    ChangePasswordEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), show="*")
-    ChangePasswordEntry.place(x=labelX, y=passwordY, width=screenManager.mainEntrysWidth)
+    ChangePasswordEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), show="*")
+    ChangePasswordEntry.place(x=labelX, y=passwordY, width=screen_manager.mainEntrysWidth)
 
-    showPasswordButton = Checkbutton(screenManager.window, text="show password", bg=screenManager.backgroundColor, fg=screenManager.secondColor,
-                                     highlightthickness=0, activebackground=screenManager.backgroundColor, bd=0,
-                                     font=("Airal", int(0.7 * screenManager.appTextFontSize), "bold"), command=lambda: show_password(ChangePasswordEntry))
-    showPasswordButton.place(x=labelX, y=passwordY + int(screenManager.winHeight/13))
+    showPasswordButton = Checkbutton(screen_manager.window, text="show password", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor,
+                                     highlightthickness=0, activebackground=screen_manager.backgroundColor, bd=0,
+                                     font=("Airal", int(0.7 * screen_manager.appTextFontSize), "bold"), command=lambda: show_password(ChangePasswordEntry))
+    showPasswordButton.place(x=labelX, y=passwordY + int(screen_manager.winHeight/13))
 
-    submitButton = Button(screenManager.window, image=screenManager.changeBTNImage, bd=0, highlightthickness=0,
-                              activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: manage_update(changeUsernameEntry.get(), ChangePasswordEntry.get()))
+    submitButton = Button(screen_manager.window, image=screen_manager.changeBTNImage, bd=0, highlightthickness=0,
+                              activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: manage_update(changeUsernameEntry.get(), ChangePasswordEntry.get()))
     submitButton.place(x=submitX, y=submitY)
 
 def manage_update(username, password):
@@ -958,120 +1034,120 @@ def manage_update(username, password):
                     data = " ".join(data)
                     notify("password didnt changed", data)
         if changed:
-            loadScreen("Home")
+            load_screen("Home")
 
     
 def DMScreen():
-    friendsY = int(screenManager.winHeight/5)
-    lefSideX = int(screenManager.winWidth/50)
+    friendsY = int(screen_manager.winHeight/5)
+    lefSideX = int(screen_manager.winWidth/50)
         
-    addFriend = Button(screenManager.window, image=screenManager.addFriendBTNImage, bd=0, highlightthickness=0, activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Add friend"))
-    addFriend.place(x=screenManager.winWidth-screenManager.joinServerImage.size[0], y=screenManager.winHeight-screenManager.settingsImage.size[1] - screenManager.joinServerImage.size[1] - screenManager.winHeight/30)
+    addFriend = Button(screen_manager.window, image=screen_manager.addFriendBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Add friend"))
+    addFriend.place(x=screen_manager.winWidth-screen_manager.joinServerImage.size[0], y=screen_manager.winHeight-screen_manager.settingsImage.size[1] - screen_manager.joinServerImage.size[1] - screen_manager.winHeight/30)
 
     friends = handle_sends("getFriends")
     friends = dict(json.loads(friends))
     friendsButtons = []
     keys = list(friends.keys())
     for i, frined in enumerate(keys):
-        sb = Button(screenManager.window, text=friends[frined], bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", int(screenManager.appTextFontSize * 0.8), "bold"), command=lambda a=frined: loadDMChat(a))
+        sb = Button(screen_manager.window, text=friends[frined], bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"), command=lambda a=frined: loadDMChat(a))
         sb.pack(anchor=N)
         sb.update()
-        sb.place(x=lefSideX, y=(friendsY + (int(screenManager.winHeight/50) + sb.winfo_height()) * i))
-        screenManager.window.update()
+        sb.place(x=lefSideX, y=(friendsY + (int(screen_manager.winHeight/50) + sb.winfo_height()) * i))
+        screen_manager.window.update()
         friendsButtons.append(sb)
 
 def loadDMChat(id):
     pass
 
-def createServerScreen():
+def create_server_screen():
 
-    nameY = int(1.7 * screenManager.winHeight / 4)
-    isGhostRoomsY = nameY + int(screenManager.winHeight/7)
-    labelX = int(screenManager.winWidth / 4)
+    nameY = int(1.7 * screen_manager.winHeight / 4)
+    isGhostRoomsY = nameY + int(screen_manager.winHeight/7)
+    labelX = int(screen_manager.winWidth / 4)
     ghostRooms = False
 
-    submitX = screenManager.mainEntrysWidth - 100
-    submitY = isGhostRoomsY + int(screenManager.winWidth/20)
+    submitX = screen_manager.mainEntrysWidth - 100
+    submitY = isGhostRoomsY + int(screen_manager.winWidth/20)
 
-    nameLabel = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text="Server Name:")
-    nameLabel.place(x=labelX, y=nameY - (screenManager.winHeight/17))
+    nameLabel = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text="Server Name:")
+    nameLabel.place(x=labelX, y=nameY - (screen_manager.winHeight/17))
 
-    nameEntry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"))
-    nameEntry.place(x=labelX, y=nameY, width=screenManager.mainEntrysWidth)
+    nameEntry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"))
+    nameEntry.place(x=labelX, y=nameY, width=screen_manager.mainEntrysWidth)
 
-    ghostRoomButton = Checkbutton(screenManager.window, text="ghost room", bg=screenManager.backgroundColor, fg=screenManager.secondColor,
-                                     highlightthickness=0, activebackground=screenManager.backgroundColor, bd=0, font=("Airal", int(0.7 * screenManager.appTextFontSize), "bold"), variable=ghostRooms, offvalue=False, onvalue=True)
-    ghostRoomButton.place(x=labelX, y=nameY + int(screenManager.winHeight/13))
-    screenManager.window.update()
+    ghostRoomButton = Checkbutton(screen_manager.window, text="ghost room", bg=screen_manager.backgroundColor, fg=screen_manager.secondColor,
+                                     highlightthickness=0, activebackground=screen_manager.backgroundColor, bd=0, font=("Airal", int(0.7 * screen_manager.appTextFontSize), "bold"), variable=ghostRooms, offvalue=False, onvalue=True)
+    ghostRoomButton.place(x=labelX, y=nameY + int(screen_manager.winHeight/13))
+    screen_manager.window.update()
 
-    submitButton = Button(screenManager.window, image=screenManager.createBTNImage, bd=0, highlightthickness=0,
-                              activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: createServer(nameEntry.get(), ghostRooms))
+    submitButton = Button(screen_manager.window, image=screen_manager.createBTNImage, bd=0, highlightthickness=0,
+                              activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: createServer(nameEntry.get(), ghostRooms))
 
-    submitButton.place(x=int(screenManager.winWidth/2) - int(screenManager.joinImage.size[0]/2), y=submitY)
+    submitButton.place(x=int(screen_manager.winWidth/2) - int(screen_manager.joinImage.size[0]/2), y=submitY)
 
 def createServer(name, isGhost):
     data = handle_sends("createServer", name, str(isGhost))
     successfully = data != "later"
     if successfully:
         notify("create server", "server created successfully")
-        loadScreen("Home")
+        load_screen("Home")
     
 
 
 def defualt_screen(screen):    
 
-    labelX = int(screenManager.winWidth / 4)
-    idEntryWidth = int(screenManager.winWidth / 4)
-    labelY = int(1.2 * screenManager.winHeight / 4)
-    submitY = labelY + int(screenManager.winHeight / 7)
+    labelX = int(screen_manager.winWidth / 4)
+    idEntryWidth = int(screen_manager.winWidth / 4)
+    labelY = int(1.2 * screen_manager.winHeight / 4)
+    submitY = labelY + int(screen_manager.winHeight / 7)
     
     match screen:
         case "Add friend":
             labelText = "Friend Email:"
-            submitButtonImage = screenManager.addBTNImage
-            submitX = int(screenManager.winWidth/2) - int(screenManager.addImage.size[0]/2)
+            submitButtonImage = screen_manager.addBTNImage
+            submitX = int(screen_manager.winWidth/2) - int(screen_manager.addImage.size[0]/2)
         case "Join Server":
             labelText = "Server ID:"
-            submitButtonImage = screenManager.joinBTNImage
-            submitX = int(screenManager.winWidth/2) - int(screenManager.joinImage.size[0]/2)
+            submitButtonImage = screen_manager.joinBTNImage
+            submitX = int(screen_manager.winWidth/2) - int(screen_manager.joinImage.size[0]/2)
         case "email validation":
             labelText = "Verify Code:"
-            submitButtonImage = screenManager.registerBTNImage
-            submitX = int(screenManager.winWidth/2) - int(screenManager.addImage.size[0]/2)
+            submitButtonImage = screen_manager.registerBTNImage
+            submitX = int(screen_manager.winWidth/2) - int(screen_manager.addImage.size[0]/2)
         case "reset password":
             labelText = "New Password:"
-            submitButtonImage = screenManager.changeBTNImage
-            submitX = int(screenManager.winWidth/2) - int(screenManager.changeImage.size[0]/2)
+            submitButtonImage = screen_manager.changeBTNImage
+            submitX = int(screen_manager.winWidth/2) - int(screen_manager.changeImage.size[0]/2)
         case _:
             return
 
-    label = Label(screenManager.window, bg=screenManager.backgroundColor, fg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"), text=labelText)
+    label = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"), text=labelText)
     label.place(x=labelX, y=labelY)
 
     label.update()
     len = idEntryWidth + int(label.winfo_width())
-    labelX = int(screenManager.winWidth/2)-int(len/2)
+    labelX = int(screen_manager.winWidth/2)-int(len/2)
 
     label.place(x=labelX, y=labelY)
     label.update()
-    entry = Entry(screenManager.window, bg=screenManager.secondColor, font=("Airal", screenManager.appTextFontSize, "bold"))
+    entry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Airal", screen_manager.appTextFontSize, "bold"))
     entry.place(x=labelX + label.winfo_width(), y=labelY, width=idEntryWidth)
     entry.update()
 
 
-    submitButton = Button(screenManager.window, image=submitButtonImage, bd=0, highlightthickness=0,
-                              activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: addFriend(entry.get()))
+    submitButton = Button(screen_manager.window, image=submitButtonImage, bd=0, highlightthickness=0,
+                              activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: addFriend(entry.get()))
     match screen:
         case "Join Server":
-            newButton =  Button(screenManager.window, image=screenManager.newServerBTNImage, bd=0, highlightthickness=0,
-                                    activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Create Server"))
-            newButton.place(x=0, y= screenManager.winHeight - screenManager.newServerImage.size[1])
+            newButton =  Button(screen_manager.window, image=screen_manager.newServerBTNImage, bd=0, highlightthickness=0,
+                                    activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Create Server"))
+            newButton.place(x=0, y= screen_manager.winHeight - screen_manager.newServerImage.size[1])
             submitButton.config(command=lambda: joinServer(entry.get()))
         case "email validation":
             submitButton.config(command=lambda: finish_register(entry.get()))
             try:
-                newButton =  Button(screenManager.window, text= "Back", bd=0, highlightthickness=0,
-                                        activebackground=screenManager.backgroundColor, bg=screenManager.backgroundColor, command=lambda: loadScreen("Create Server"))
+                newButton =  Button(screen_manager.window, text= "Back", bd=0, highlightthickness=0,
+                                        activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: load_screen("Create Server"))
                 newButton.pack(anchor=CENTER)
             except Exception as e:
                 print(e)
@@ -1079,7 +1155,7 @@ def defualt_screen(screen):
         case "reset password":
             submitButton.config(command=lambda: resetPassword(entry.get()))
     submitButton.place(x=submitX, y=submitY)
-    screenManager.window.update()
+    screen_manager.window.update()
 def resetPassword(password):
     if password != "":
             if "|" in password or "&" in password:
@@ -1104,35 +1180,35 @@ def joinServer(id: Entry):
     successfully = data == "S"
     if successfully:
         notify("joined server", "joined successfully to server")
-        loadScreen("Home")
+        load_screen("Home")
     else:
         notify("joined failed", data)
 
 
 def close():
     # handle_client("close")
-    screenManager.window.destroy()
+    screen_manager.window.destroy()
 
 def main():
-    global sock, resulations, isUser, screenManager
+    global sock, resulations, isUser, screen_manager
 
     isUser = False
     sock = socket.socket()
     sock.connect((ip, port))
-
+    # sock.settimeout(10)
 
     window.update()
     current_res = "fullscreen"
-    screenManager = screen_manager(window, current_res)
-    
-    screenManager.window.resizable(False, False)
-    screenManager.window['background'] = screenManager.backgroundColor
+    screen_manager = ScreenManager(window, current_res)
 
-    screenManager.window.update()
+    screen_manager.window.resizable(False, False)
+    screen_manager.window['background'] = screen_manager.backgroundColor
+
+    screen_manager.window.update()
 
     change_screen_resulation("login", "fullscreen")
 
-    resulations = getResulations(screenManager.maxResulation)
+    resulations = getResulations(screen_manager.maxResulation)
 
     # graphic_t = Thread(target=loadScreen, args=("Register",))
     # graphic_t.start()

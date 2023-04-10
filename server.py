@@ -28,6 +28,7 @@ cipher = Fernet(key)
 fKey.close()
 
 emailT = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+idToSocket = []
 
 # db
 cred = credentials.Certificate("serviceAccountKey.json")
@@ -38,7 +39,8 @@ blob = bucket.get_blob('Chats/Tie-Dye.png')
 db = firestore.client()
 
 TZ = timezone('Asia/Jerusalem')
-server_address = ('127.0.0.1', 3339)
+server_ip = '127.0.0.1'
+server_main_port = 3339
 sockets_threads = []
 
 
@@ -110,6 +112,29 @@ class ClientHandler:
                 self._handle_sends(data[0], self._load_room(data[1]))
             case "add message":
                 self._handle_sends(data[0], self._add_message(data[1]))
+            case "active camera":
+                self._handle_sends(data[0], self._active_camera())
+
+    def _active_camera(self):
+        camera_socket = socket.socket()
+        camera_socket.bind((server_ip, 0))
+        my_camera_port = camera_socket.getsockname()[1]
+        self.myCameraThread = Thread(target=self._self_camera_handler, args=(camera_socket,))
+        return f"S|{my_camera_port}"
+    
+    def _self_camera_handler(self, camera_socket: socket.socket):
+        while True:
+            cameraInput = camera_socket.recv()
+            self._send_my_camera_to_vc(cameraInput)
+
+    def _set_vc_members(self):
+        self.inVCMembers = self.current_room.get().to_dict()["members"]
+
+    def _send_my_camera_to_vc(self, cameraInput: bytes):
+        for m in self.inVCMembers:
+            sock = idToSocket(m)
+            sock.send(cameraInput)
+            
 
     def _add_message(self, message):
         try:
@@ -221,6 +246,7 @@ class ClientHandler:
         return serverID
 
     def _login(self, email: str, password: str) -> bool:
+        global idToSocket
         user = db.collection('users').document(email)
         user2 = user.get()
         if user2.exists:
@@ -230,6 +256,7 @@ class ClientHandler:
             if userDict['password'] == password:
                 print(userDict)
                 self.user = user
+                idToSocket[email] = self.sock
                 return "S"
         return "F"
 
@@ -253,6 +280,7 @@ class ClientHandler:
         self.email = email
         self.password = password
         self.username = username
+        idToSocket[email] = self.sock
         return "S"
     
     def _finish_register(self, verificationCode):
@@ -406,7 +434,7 @@ class ClientHandler:
             return serversDict
         else:
             return "ERR"
-
+        
     def _handle_sends(self, type: str, *params) -> bool:
         print("pls work")
         print(f'{type=} | {params=}')
@@ -415,7 +443,7 @@ class ClientHandler:
         else:
             toSend = params[0]
 
-        maxChunkLength = 9000
+        maxChunkLength = 99998
         # print(f"{toSend=}")
         toSend = '`'.encode() + cipher.encrypt(toSend.encode())
         # print(f"{toSend=}")
@@ -449,7 +477,7 @@ def handle_client(sock, addr):
 def main():
     global sockets_threads
     server_sock = socket.socket()
-    server_sock.bind(server_address)
+    server_sock.bind((server_ip, server_main_port))
     server_sock.listen(50)
     i = 0
     while True:
