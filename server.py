@@ -10,54 +10,62 @@ from hashlib import md5
 from email.message import EmailMessage
 import ssl, smtplib
 
+import cv2, numpy as np
+from PIL import Image
+
 from google.protobuf import timestamp_pb2
 import google.api_core.datetime_helpers as dateTimeHelper
 
 from datetime import datetime
 import dateutil
 
+class serverData:    
+    #email sender
+    email_sender = "sceprojectc@gmail.com"
+    email_password = "zoulqjmbhogkbcgq"
 
-#email sender
-email_sender = "sceprojectc@gmail.com"
-email_password = "zoulqjmbhogkbcgq"
+    # encrypt
+    fKey = open("key.txt", "rb")
+    key = fKey.read()
+    cipher = Fernet(key)
+    fKey.close()
 
-# encrypt
-fKey = open("key.txt", "rb")
-key = fKey.read()
-cipher = Fernet(key)
-fKey.close()
+    emailT = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+    idToSocket = {}
 
-emailT = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
-idToSocket = []
+    # db
+    cred = credentials.Certificate("serviceAccountKey.json")
+    # firebase_admin.initialize_app(cred)
+    app = firebase_admin.initialize_app(cred, {'storageBucket': 'sce-e499f.appspot.com'})
+    bucket = storage.bucket()
+    blob = bucket.get_blob('Chats/Tie-Dye.png')
+    db = firestore.client()
 
-# db
-cred = credentials.Certificate("serviceAccountKey.json")
-# firebase_admin.initialize_app(cred)
-app = firebase_admin.initialize_app(cred, {'storageBucket': 'sce-e499f.appspot.com'})
-bucket = storage.bucket()
-blob = bucket.get_blob('Chats/Tie-Dye.png')
-db = firestore.client()
+    TZ = timezone('Asia/Jerusalem')
+    server_ip = '127.0.0.1'
+    server_main_port = 3339
+    sockets_threads = []
 
-TZ = timezone('Asia/Jerusalem')
-server_ip = '127.0.0.1'
-server_main_port = 3339
-sockets_threads = []
+    max_in_vc = 9
 
 
 class ClientHandler:
-    def __init__(self, sock: socket):
+    def __init__(self, sock: socket.socket, sd: serverData):
         self.user = None
         self.current_server = None
         self.current_room = None
+        self._in_vc_room = None
         self.sock = sock
+        self.sd = sd
+        self.torun = True
 
     def run(self):
-        while True:
+        while self.torun:
             self._receiver()
 
     def _receiver(self):
         bd = self.sock.recv(1024)
-        bd = cipher.decrypt(bd)
+        bd = self.sd.cipher.decrypt(bd)
         data = bd.decode("utf-8")
         self._handle_messages(data)
     
@@ -71,9 +79,9 @@ class ClientHandler:
                 self._handle_requests(s_data)
             else:
                 self._handle_sends("error", "message received unclearly")
-        except:
-            print("error")
-            self.sock.send(cipher.encrypt("error".encode()))
+        except Exception as e:
+            print(f"error {e}")
+            self.sock.send(self.sd.cipher.encrypt("error".encode()))
         time.sleep(0.01)
 
     def _handle_requests(self, data: list):
@@ -108,33 +116,100 @@ class ClientHandler:
                 self._handle_sends(data[0], self._get_rooms(data[1]))
             case "get participants":
                 self._handle_sends(data[0], self._get_participants())
-            case "load room":
-                self._handle_sends(data[0], self._load_room(data[1]))
+            case "load text room":
+                self._handle_sends(data[0], self._load_text_room(data[1]))
+            case "load voice room":
+                self._handle_sends(data[0], self._load_voice_room(data[1]))
             case "add message":
                 self._handle_sends(data[0], self._add_message(data[1]))
             case "active camera":
                 self._handle_sends(data[0], self._active_camera())
+            case "exit":
+                self.torun = False
+
+    def _load_voice_room(self, room):
+        try:
+            self.current_room = self.current_server.collection("rooms").document(room)
+            self.current_room.update({u'members': firestore.ArrayUnion([self.email])})
+            self._in_vc_room = True
+            ports = self._send_all_cams()
+            ports = "*".join(ports)
+            return f"S|{ports}"
+        except Exception as e:
+            print(e)
+            return "F"
+    
+    def _send_all_cams(self):
+        ports = []
+        self._set_vc_members()
+        for member in self.inVCMembers:
+            if member != self.email:
+                cam_socket = socket.socket()
+                cam_socket.bind((self.sd.server_ip, 0))
+                camera_port = cam_socket.getsockname()[1]
+                ports.append(str(camera_port))
+                cam_thread = Thread(target=self._send_member_cam, args=(member, cam_socket))
+                cam_thread.start()
+        return ports
+    
+    def _send_member_cam(self, email: str, sock: socket.socket):
+        print("hello world")
+        sock.listen(1)
+        cli_sock, _ = sock.accept()
+        while self._in_vc_room:
+            try:
+                cam_frame = self.sd.bucket.get_blob(f'cameras/{email}')
+            except Exception as e:
+                print(e)
+            else:
+                if cam_frame != None:
+                    tosend = cam_frame.download_as_bytes()
+                    # _, buff_array = cv2.imencode(cam_frame)
+                    # tosend = buff_array.tostring()
+                    cli_sock.send(tosend)
 
     def _active_camera(self):
         camera_socket = socket.socket()
-        camera_socket.bind((server_ip, 0))
+        camera_socket.bind((self.sd.server_ip, 0))
         my_camera_port = camera_socket.getsockname()[1]
+        camera_socket.listen(1)
+        print(f"{my_camera_port=}")
         self.myCameraThread = Thread(target=self._self_camera_handler, args=(camera_socket,))
+        self.myCameraThread.start()
         return f"S|{my_camera_port}"
     
-    def _self_camera_handler(self, camera_socket: socket.socket):
+    def _self_camera_handler(self, camera_server_socket: socket.socket):
+        cam_sock, client_address = camera_server_socket.accept()
         while True:
-            cameraInput = camera_socket.recv()
-            self._send_my_camera_to_vc(cameraInput)
+            cameraInput = cam_sock.recv(999999999)
+            print("HERE!")
+            bytes = np.frombuffer(cameraInput, np.uint8)
+            
+            image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
+            rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            pilImage = Image.fromarray(rgb_frame)
+            file_name = f"tempImages/{self.email}.png"
+            pilImage.save(file_name)
+            blob = self.sd.bucket.blob("cameras/"+self.email)
+            try:
+                blob.upload_from_filename(file_name)
+            except:
+                pass
+            # pilImage.`s`how()
+            # cv2.imshow("a",image)
+            # self._send_my_camera_to_vc(cameraInput)
 
     def _set_vc_members(self):
+        self.current_room = self.sd.db.collection("servers").document("iZzcJJVbsytpw3F").collection("rooms").document("mainVoiceChat")
         self.inVCMembers = self.current_room.get().to_dict()["members"]
 
-    def _send_my_camera_to_vc(self, cameraInput: bytes):
-        for m in self.inVCMembers:
-            sock = idToSocket(m)
-            sock.send(cameraInput)
-            
+    # def _send_my_camera_to_vc(self, cameraInput: bytes):
+    #     self._set_vc_members()
+    #     for m in self.inVCMembers:
+    #         if not m == self.email:
+    #             sock = self.sd.idToSocket(m)
+    #             sock.send(cameraInput)
+
 
     def _add_message(self, message):
         try:
@@ -145,7 +220,7 @@ class ClientHandler:
             return "F"
 
     def _get_rooms(self, serverID):
-        server = db.collection('servers').document(serverID)
+        server = self.sd.db.collection('servers').document(serverID)
         server2 = server.get()
         if not server2.exists:
             return "F|server not exists"
@@ -202,7 +277,7 @@ class ClientHandler:
         return "S"
     
     def _reset_password(self, password):
-        user = db.collection('users').document(self.email)
+        user = self.sd.db.collection('users').document(self.email)
         user2 = user.get()
         if not user2.exists:
             return "user is not exists"
@@ -218,7 +293,7 @@ class ClientHandler:
             friendsID = self.user.get().to_dict()["friends"]
             friendsDict = {}
             for friendID in friendsID:
-                f = db.collection('servers').document(friendID).get()
+                f = self.sd.db.collection('servers').document(friendID).get()
                 if f.exists:
                     friendsDict[friendID] = (f.to_dict()["username"])
             return friendsDict
@@ -231,7 +306,7 @@ class ClientHandler:
         i = 0
         while True:
             serverID = (''.join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=15)))
-            server = db.collection('servers').document(serverID).get()
+            server = self.sd.db.collection('servers').document(serverID).get()
             if not server.exists:
                 break
             if i >= 100:
@@ -240,14 +315,13 @@ class ClientHandler:
         email = userDict['email']
         data = {'serverID': serverID, 'ownerID': email, 'serverName': serverName, 'membersID': [email], 'adminsID': [email], 'isGhost': bool(isGhost)}
         self.user.update({u'servers': firestore.ArrayUnion([f'{serverID}'])})
-        db.collection('servers').document(serverID).set(data)
+        self.sd.db.collection('servers').document(serverID).set(data)
         mainRoomData = {"name": "mainRoom", "type": "text", "messages": []}
-        db.collection('servers').document(serverID).collection('rooms').document("mainRoom").set(mainRoomData)
+        self.sd.db.collection('servers').document(serverID).collection('rooms').document("mainRoom").set(mainRoomData)
         return serverID
 
     def _login(self, email: str, password: str) -> bool:
-        global idToSocket
-        user = db.collection('users').document(email)
+        user = self.sd.db.collection('users').document(email)
         user2 = user.get()
         if user2.exists:
             userDict = user2.to_dict()
@@ -256,7 +330,8 @@ class ClientHandler:
             if userDict['password'] == password:
                 print(userDict)
                 self.user = user
-                idToSocket[email] = self.sock
+                self.email = email
+                self.sd.idToSocket[email] = self.sock
                 return "S"
         return "F"
 
@@ -265,7 +340,7 @@ class ClientHandler:
         return "S"
         
     def _register(self, email: str, username: str, password: str) -> bool:
-        user = db.collection('users').document(email).get()
+        user = self.sd.db.collection('users').document(email).get()
         if user.exists:
             return "email already exists"
         validate = self._check_is_password_valid(password)
@@ -280,7 +355,7 @@ class ClientHandler:
         self.email = email
         self.password = password
         self.username = username
-        idToSocket[email] = self.sock
+        self.sd.idToSocket[email] = self.sock
         return "S"
     
     def _finish_register(self, verificationCode):
@@ -292,8 +367,8 @@ class ClientHandler:
                 email = self.email
                 username = self.username
                 data = {'email': email, 'username': username, 'password': password, 'friends': [], 'servers': []}
-                db.collection('users').document(email).set(data)
-                self.user = db.collection('users').document(email)
+                self.sd.db.collection('users').document(email).set(data)
+                self.user = self.sd.db.collection('users').document(email)
                 print("here1")
                 self.email = None
                 self.password = None
@@ -316,7 +391,7 @@ class ClientHandler:
     
     def _send_email(self, reciver, subject, message):
         em = EmailMessage()
-        em["From"] = email_sender
+        em["From"] = self.sd.email_sender
         em["To"] = reciver
         em["Subject"] = subject
         em.set_content(message)
@@ -325,9 +400,9 @@ class ClientHandler:
 
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as smtp:
-                smtp.login(email_sender, email_password)
+                smtp.login(self.sd.email_sender, self.sd.email_password)
                 print('logedin')
-                smtp.sendmail(email_sender, reciver, em.as_string())
+                smtp.sendmail(self.sd.email_sender, reciver, em.as_string())
                 print(f"email sent to: {reciver}")
         except Exception as e:
             print(e)
@@ -336,7 +411,7 @@ class ClientHandler:
 
 
     def _join_server(self, id: str):
-        server = db.collection('servers').document(id)
+        server = self.sd.db.collection('servers').document(id)
         server2 = server.get()
         if self.user == None:
             return "user not found"
@@ -367,7 +442,7 @@ class ClientHandler:
             print(e) 
             return f"F"
 
-    def _load_room(self, room: str) -> list:
+    def _load_text_room(self, room: str) -> list:
         if not self.current_server:
             return "F|server not set"
         if not self.current_server.get().exists:
@@ -396,10 +471,12 @@ class ClientHandler:
 
         self.current_room = c_room
 
+        self._in_vc_room = False
+
         return f"S|{'*'.join(d_messages)}"
     
     def _load_username(self, email):
-        user = db.collection('users').document(email).get()
+        user = self.sd.db.collection('users').document(email).get()
         if user.exists:
             return user.to_dict()["username"]
         else:
@@ -421,14 +498,14 @@ class ClientHandler:
         return True if cp == "valid" else False, cp
     
     def _check_is_email_valid(self, email: str):
-        return re.fullmatch(emailT, email)
+        return re.fullmatch(self.sd.emailT, email)
 
     def _get_servers(self):
         if self.user != None:
             serversID = self.user.get().to_dict()["servers"]
             serversDict = {}
             for serverID in serversID:
-                s = db.collection('servers').document(serverID).get()
+                s = self.sd.db.collection('servers').document(serverID).get()
                 if s.exists:
                     serversDict[serverID] = (s.to_dict()["serverName"])
             return serversDict
@@ -445,7 +522,7 @@ class ClientHandler:
 
         maxChunkLength = 99998
         # print(f"{toSend=}")
-        toSend = '`'.encode() + cipher.encrypt(toSend.encode())
+        toSend = '`'.encode() + self.sd.cipher.encrypt(toSend.encode())
         # print(f"{toSend=}")
         print(f"{len(toSend)=}")
         if len(toSend) > maxChunkLength:
@@ -470,22 +547,22 @@ class ClientHandler:
             print(e)
         return chunks
 
-def handle_client(sock, addr):
-    c = ClientHandler(sock=sock)
+def handle_client(sock, addr, sd):
+    c = ClientHandler(sock=sock, sd=sd)
     c.run()
 
 def main():
-    global sockets_threads
+    sd = serverData()
     server_sock = socket.socket()
-    server_sock.bind((server_ip, server_main_port))
+    server_sock.bind((sd.server_ip, sd.server_main_port))
     server_sock.listen(50)
     i = 0
     while True:
         client_sock, client_address = server_sock.accept()
         print('connected')
         # send_message(client_sock, "Hello")
-        t = Thread(target=handle_client, args=(client_sock, client_address))
-        sockets_threads.append(t)
+        t = Thread(target=handle_client, args=(client_sock, client_address, sd))
+        sd.sockets_threads.append(t)
         t.start()
         i += 1
     for t in sockets_threads:

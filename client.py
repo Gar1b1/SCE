@@ -7,8 +7,8 @@ from threading import Thread
 from cryptography.fernet import Fernet
 import ctypes, os
 from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
-import random, string, math, pyperclip
-
+import random, string, math, pyperclip, cv2
+import numpy as np
 
 curPath = os.getcwd()
 
@@ -32,11 +32,20 @@ global isUser, current_server, toRemember
 #connection
 ip = "127.0.0.1"
 port = 3339
-global sock
+global sock, cam_sock
+
+# cam_port = 1000
+# cam_sock.connect((ip, port))
+# define a video capture object
+vid = cv2.VideoCapture(0)
 
 
 class ScreenManager():
-    def __init__(self, window, current_res):
+    def __init__(self, window: Tk, current_res: str):
+        
+        self.max_camera_width = 250
+        self.max_camera_height = 250
+
         self.imgPath = curPath+"/images/"
         self.backgroundColor = "#040030"
         self.secondColor = "#76E6CB"
@@ -65,6 +74,8 @@ class ScreenManager():
         self.vOriginImage = Image.open(f"{self.imgPath}V.png")
         self.sendIconOriginImage = Image.open(f"{self.imgPath}sendIconButton.png")
         self.shareOriginImage = Image.open(f"{self.imgPath}shareButton.png")
+        self.cameraOriginImage = Image.open(f"{self.imgPath}camera.png")
+        self.microphoneOriginImage = Image.open(f"{self.imgPath}microphone.png")
 
         user32 = ctypes.windll.user32
         self.maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
@@ -85,7 +96,7 @@ class ScreenManager():
         self.titlesFontSize  = int(self.winWidth/25)
         self.appTextFontSize = int(self.winWidth/65)
         self.roomsNamesTextSize = int(self.winWidth/125)
-        self.messagesFontSize = int(self.winWidth/140)
+        self.messagesFontSize = int(self.winWidth/175)
         self.participantsFontSize = int(self.winWidth/ 93)
 
         self.titleWidth = int(self.winWidth / 1.25)
@@ -226,19 +237,31 @@ class ScreenManager():
         self.sendIconImage = self.sendIconOriginImage.resize(self._get_new_size(originalSize, newWidth))
         self.sendIconBTNImage = ImageTk.PhotoImage(self.sendIconImage)
 
+        #voices icons
+        proportion = 17
+        newWidth = int(self.winWidth/proportion)
+    
+        originalSize = self.cameraOriginImage.size
+        self.cameraImage = self.cameraOriginImage.resize(self._get_new_size(originalSize, newWidth))
+        self.cameraBTNImage = ImageTk.PhotoImage(self.cameraImage)
+
+        originalSize = self.microphoneOriginImage.size
+        self.microphoneImage = self.microphoneOriginImage.resize((self._get_new_size(originalSize, newWidth)))
+        self.microphoneBTNImage = ImageTk.PhotoImage(self.microphoneImage)
+
         
     def _get_new_size(self, originalSize: tuple, newWidth: int):
         return (newWidth, int(originalSize[1] * newWidth/originalSize[0]))
 
 
-    def setTitleLowestY(self, titleLowestY):
+    def setTitleLowestY(self, titleLowestY: int):
         self.titleLowestY = titleLowestY
 
-    def setCurrentRes(self, res):
+    def setCurrentRes(self, res: str):
         self.currentRes = res
 
 
-def getResulations(maxResulation):
+def getResulations(maxResulation: str):
     allRes = {2560: "2560x1440", 1920: "1920x1080", 1280: "1280x720"}
     possiableRes = allRes.copy()
     maxWidht = maxResulation[0]
@@ -274,7 +297,7 @@ def register(email: str, password: str, username: str):
     else:
         notify("register failed", data)
 
-def finish_register(verificationCode):
+def finish_register(verificationCode: str):
     global isUser
     data = handle_sends("finish register", verificationCode).split("|")
     successfully = data == "S"
@@ -308,7 +331,7 @@ def login(email: str, password: str):
     else:
         notify("login failed","user params are inncorect")
 
-def notify(title1, message1):
+def notify(title1: str, message1: str):
     """
     This function creates a notification with a title and message, and displays it using a Windows
     toaster and a message box.
@@ -319,14 +342,15 @@ def notify(title1, message1):
     try:
         # win11toast.ToastNotificationManager.create_toast_notifier("Python")
         # winToaster2 = InteractableWindowsToaster("SCE")
-        newToast = ToastImageAndText1()
-        newToast.SetBody(title1 + " | " + message1)
+        # newToast = ToastImageAndText1()
+        # newToast.SetBody(title1 + " | " + message1)
         # newToast.SetHeadline(title1)
-        newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{screen_manager.imgPath}sce_logo.png"))
-        winToaster.show_toast(newToast)
+        # newToast.AddImage(ToastDisplayImage.fromPath(f"{os.getcwd()}/{screen_manager.imgPath}sce_logo.png"))
+        # winToaster.show_toast(newToast)
         # newToast.AddInput(ToastInputTextBox("name", "your name", "Alon Garibi"))
         # newToast.AddAction(ToastButton("Submit", "submit"))
         # winToaster2.show_toast(newToast)
+        pass
     except Exception as e:
         print(e)
 
@@ -410,7 +434,7 @@ def show_password(passwordEntry):
     else:
         passwordEntry.config(show='*')
 
-def loadServer(server):
+def loadServer(server: str):
     global current_server
     current_server = server
     load_screen("server")
@@ -449,7 +473,7 @@ def home_sceen():
         serversButtons.append(sb)
     screen_manager.window.update()
 
-def login_register_screens(screen):
+def login_register_screens(screen: str):
     global toRemember
     screen_manager.window.update()
 
@@ -587,7 +611,7 @@ def logout_user():
     else:
         print("error")
 
-def change_screen_resulation(screen, res):
+def change_screen_resulation(screen: str, res: str):
     screen_manager.setCurrentRes(res)
 
     if res == "fullscreen":
@@ -599,10 +623,8 @@ def change_screen_resulation(screen, res):
     screen_manager.resize_screen()
     load_screen(screen)
 
-def load_screen(screen):
+def load_screen(screen: str):
     clearScreen()
-
-
 
     screen_manager.window.update()
 
@@ -668,7 +690,7 @@ def forgot_password_screen():
     submit_button.place(x=send_button.winfo_x(), y=reset_code_entry.winfo_y() + reset_code_entry.winfo_height() + int(screen_manager.window_height / 25))
 
 
-def sendForgotPasswordEmail(email):
+def sendForgotPasswordEmail(email: str):
     d = handle_sends("send verification", email)
     s = d == "S"
     if s:
@@ -691,6 +713,10 @@ class server_screen():
         self.isMessages = False
         self.maxMembersInLine = 3
         self.serverScreen()
+        self.ot_widgets = []
+        self.start_pos = (350, 100)
+        self.max_in_vc = 9
+        self.margin = 100
         
 
     def serverScreen(self):
@@ -715,10 +741,10 @@ class server_screen():
         self.participantsX = self.messagesWidth + self.roomsWidth
         self.loadParticipantsCanvas()
 
-    def copy_server_id(self, server_id):
+    def copy_server_id(self, server_id: str):
         print(f"server id is: {server_id}")
         pyperclip.copy(server_id)
-        notify("link copied", "the link of this server copied\nshare the code with who you want to join the server")
+        notify("code copied", "the code of this server copied\nshare the code with who you want to join the server")
 
     def loadRoomsCanvas(self):
         self.roomsFrame = Frame(screen_manager.window)
@@ -816,6 +842,13 @@ class server_screen():
         screen_manager.window.update()
 
     def load_messages(self):
+        for widget in self.secMessagesFrame.winfo_children():
+            widget.destroy()
+        for widget in self.messagesCanvas.winfo_children():
+            if not isinstance(widget, Frame) and not isinstance(widget, Scrollbar):
+                widget.destroy()
+        self.to_limit_y_view = True
+        self.messagesCanvas.yview_moveto(0)
         if self.isMessages:
             self.secMessagesFrame.update()
             lastButtonY = 0
@@ -828,7 +861,7 @@ class server_screen():
                 isMessageIsMy = author["isMy"]
                 messageAuthor = author["username"]
                 coMessageData = messageData
-                maxLength = 100
+                maxLength = 120
                 lines = [coMessageData]
                 while len(lines[0]) > maxLength:
                     if " " in lines[0][:maxLength]:
@@ -843,8 +876,11 @@ class server_screen():
                         lines[-1][1:]
                     elif lines[-1][-1] == " ":
                         lines[-1][:-1]
-                lines.reverse()
+                lines.append(lines[0])
+                lines = lines[1:]
+                # lines.reverse()
                 lines="\n".join(lines)
+                print(f"\n\n\n\n{lines=}")
                 l = Label(self.secMessagesFrame, text= messageAuthor+":", bd=0, highlightthickness=0, bg=screen_manager.thirdColor, font=("Arial", screen_manager.messagesFontSize, "bold"), fg = screen_manager.secondColor)
                 l.grid(row=lastButtonY, column=0, sticky=W)
                 labels.append(l)
@@ -893,7 +929,7 @@ class server_screen():
             label = Label(self.secParticipantsFrame, bg=screen_manager.thirdColor, fg=screen_manager.secondColor, font=("Airal", screen_manager.participantsFontSize, "bold"), text=participant)
             label.grid(row=i, column=0, sticky=W)
         
-    def loadTextRoom(self, room):
+    def loadTextRoom(self, room: str):
         """
         This function loads a text room and displays messages and a message entry field.
         
@@ -901,7 +937,7 @@ class server_screen():
         to retrieve the messages and other information related to that room
         """
         self.current_room = room
-        data = handle_sends("load room", room).split("|")
+        data = handle_sends("load text room", room).split("|")
         success = data[0] == "S"
         if success:
             self.messages = data[1].split("*")
@@ -914,38 +950,165 @@ class server_screen():
             self.messageEntry.place(x=self.messagesX, y=screen_manager.winHeight-self.messageEntry.winfo_height(), width=self.messagesFrame.winfo_width()-1.5*self.messagesScrollbar.winfo_width()-screen_manager.sendIconImage.size[0])
             self.messageEntry.update()
             screen_manager.window.update()
-            sendButton = Button(screen_manager.window, image=screen_manager.sendIconBTNImage, bg=screen_manager.thirdColor, command=lambda: self.send_message(self.messageEntry.get()))
-            sendButton.place(x=self.messagesFrame.winfo_x() + self.messageEntry.winfo_width(), y = screen_manager.winHeight-screen_manager.sendIconImage.size[1])
+            self.sendButton = Button(screen_manager.window, image=screen_manager.sendIconBTNImage, bg=screen_manager.thirdColor, command=lambda: self.send_message(self.messageEntry.get()))
+            self.sendButton.place(x=self.messagesFrame.winfo_x() + self.messageEntry.winfo_width(), y = screen_manager.winHeight-screen_manager.sendIconImage.size[1])
             self.messagesCanvas.update()
 
         else:
             notify("load room error", data[1])
     
+    def clear_canvas(self):
+        try:
+            for ot_widget in self.ot_widgets:
+                ot_widget.destroy()
+        except:
+            pass
 
-    def loadVoiceRoom(self, room):
-        self.current_room = room
-        data = handle_sends("load voice room").split("|")
-        success = data[0] == "S"
-        if success:
-            m_threads = {}
-            inVC = data[1].split("*")
-            for i, m_id in enumerate(inVC):
-                line = math.floor(i/self.maxMembersInLine)
-                row = i % self.maxMembersInLine
-                mt = Thread(target=self.load_member_camera, args=(line, row, m_id))
-                mt.start()
-                m_threads[m_id] = mt 
-            for t in m_threads:
+    def toggle_camera_mode(self):
+        global cam_sock
+        self.to_use_camera = not self.to_use_camera
+        if self.to_use_camera:
+            d = handle_sends("active camera").split("|")
+            if d[0] == "S":
+                cam_sock = socket.socket()
+                cam_port = int(d[1])
+                print(f"{cam_port=}")
+                cam_sock.connect((ip, cam_port))
+                send_camera_thread = Thread(target=self.sendMyCamera ,args=())
+                send_camera_thread.start()
+        else:
+            cam_sock.close()
+
+    def recv_camera_data(self, port, n):
+        r = math.floor(n % 3)
+        c = math.floor(n / 3)
+        l = Label(self.messagesCanvas)
+        x_pos = self.start_pos[0] + c * (self.margin + screen_manager.max_camera_width)
+        y_pos = self.start_pos[1] + r * (self.margin + screen_manager.max_camera_height)
+        print(f"{n=} {c=} {r=} {x_pos=} {y_pos=}")
+        l.place(x=x_pos, y=y_pos)
+
+        sock = socket.socket()
+
+        port = int(port)
+        sock.connect(("127.0.0.1", port))
+        while True:
+            try:
+                frame = sock.recv(999999999)
+                # print(frame)
+                bytes = np.frombuffer(frame, np.uint8)
+                
+                image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
+                rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                pilImage = Image.fromarray(rgb_frame)
+                img = ImageTk.PhotoImage(pilImage)
+                l.config(image=img)
+                l.update()
+                # l = Label(screen_manager.window, image=img, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor)
+                # l.place(x=150, y=150)
+            except:
                 pass
 
-    def load_member_camera(self,line, row):
+    def loadVoiceRoom(self, room: str):
+        for widget in self.secMessagesFrame.winfo_children():
+            widget.destroy()
+        for widget in self.messagesCanvas.winfo_children():
+            if not isinstance(widget, Frame) and not isinstance(widget, Scrollbar):
+                widget.destroy()
+            try:
+                self.sendButton.destroy()
+                self.messageEntry.destroy()
+            except:
+                pass
+        camera_sockets = []
+        # for i in range(1, self.max_in_vc):
+        #     sock = socket.socket()
+        #     camera_sockets.append(sock)
+        #     camera_thread = Thread(target=self.recv_camera_data, args=(sock, i))
+        #     camera_thread.start()
+
+        self.current_room = room
+        data = handle_sends("load voice room", room).split("|")
+        success = data[0] == "S"
+        print(f"{success=}")
+        if success:
+            ports = data[1].split("*")
+            self.to_use_camera = False
+            camera_button = Button(self.messagesCanvas, image=screen_manager.cameraBTNImage, bg=screen_manager.thirdColor, command=self.toggle_camera_mode)
+            camera_button.place(x=self.messagesCanvas.winfo_width()/2 - screen_manager.cameraImage.size[0]/2, y=self.messagesCanvas.winfo_height() - screen_manager.cameraImage.size[1])
+            self.ot_widgets.append(camera_button)
+
+            for i, port in enumerate(ports):
+                i += 1
+                t = Thread(target=self.recv_camera_data, args=(port, i))
+                t.start()
+            # t = Thread(target=self.loadCamera)
+            # t = Thread(target=self.sendMyCamera)
+            
+            # m_threads = {}
+            # inVC = data[1].split("*")
+    
+            # for i, m_id in enumerate(inVC):
+            #     line = math.floor(i/self.maxMembersInLine)
+            #     row = i % self.maxMembersInLine
+            #     mt = Thread(target=self.load_member_camera, args=(line, row, m_id))
+            #     mt.start()
+            #     m_threads[m_id] = mt 
+            # for t in m_threads:
+            #     pass
+
+    # def load_cam(self, port):
+
+
+
+    def sendMyCamera(self):
+        cl = Label(self.messagesCanvas)
+        cl.place(x=self.start_pos[0], y=self.start_pos[1])
+        while self.to_use_camera:
+            if vid.isOpened():
+                ret, frame = vid.read()
+                maxWidth =200
+                maxHeight = 200
+                height, width = frame.shape[:2]
+                print(f"{width=} {height=}")
+                if width > maxWidth:
+                    p = maxWidth/width
+                    print(p)
+                    frame = cv2.resize(frame, (0, 0),  fx=p, fy=p)
+                height, width = frame.shape[:2]
+                if height > maxHeight:
+                    p = maxHeight/height
+                    frame = cv2.resize(frame, (0, 0),  fx=p, fy=p)
+                height, width = frame.shape[:2]
+                # frame = cv2.GaussianBlur(frame, (3, 3), 0)
+
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pilImage = Image.fromarray(rgb_frame)
+
+                my_camera_image = ImageTk.PhotoImage(pilImage)
+                cl.config(image=my_camera_image)
+                cl.update()
+
+                # time.sleep(1/24)
+
+                is_success, buf_array = cv2.imencode(".png", frame)
+
+                s = buf_array.tostring()
+
+                # print(type(s))
+                # # print(bytes)
+                # print("---------------------------------------------\n" + f"{s}\n{len(s)}")
+                # print(f"{width=} {height=}")
+                cam_sock.send(s)
+
+    def load_member_camera(self,line: int, row: int):
         pass
 
-    def send_message(self, message):
+    def send_message(self, message: str):
         success = handle_sends("add message", message) == "S"
         self.loadTextRoom(self.current_room)
 
-def loadBasicScreen(window2, screen):
+def loadBasicScreen(window2: Tk, screen: str):
 
     xButton = Button(window2, image=screen_manager.XBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=close, cursor= "X_cursor")
     xButton.pack(anchor=NE)
@@ -1003,7 +1166,7 @@ def change_user_data_screen():
                               activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: manage_update(changeUsernameEntry.get(), ChangePasswordEntry.get()))
     submitButton.place(x=submitX, y=submitY)
 
-def manage_update(username, password):
+def manage_update(username: str, password: str):
     changed = False
     if isUser:
         if username != "":
@@ -1060,7 +1223,6 @@ def loadDMChat(id):
     pass
 
 def create_server_screen():
-
     nameY = int(1.7 * screen_manager.winHeight / 4)
     isGhostRoomsY = nameY + int(screen_manager.winHeight/7)
     labelX = int(screen_manager.winWidth / 4)
@@ -1085,7 +1247,7 @@ def create_server_screen():
 
     submitButton.place(x=int(screen_manager.winWidth/2) - int(screen_manager.joinImage.size[0]/2), y=submitY)
 
-def createServer(name, isGhost):
+def createServer(name: str, isGhost: bool):
     data = handle_sends("createServer", name, str(isGhost))
     successfully = data != "later"
     if successfully:
@@ -1094,8 +1256,7 @@ def createServer(name, isGhost):
     
 
 
-def defualt_screen(screen):    
-
+def defualt_screen(screen: str):    
     labelX = int(screen_manager.winWidth / 4)
     idEntryWidth = int(screen_manager.winWidth / 4)
     labelY = int(1.2 * screen_manager.winHeight / 4)
@@ -1156,7 +1317,8 @@ def defualt_screen(screen):
             submitButton.config(command=lambda: resetPassword(entry.get()))
     submitButton.place(x=submitX, y=submitY)
     screen_manager.window.update()
-def resetPassword(password):
+
+def resetPassword(password: str):
     if password != "":
             if "|" in password or "&" in password:
                 print(password)
@@ -1175,7 +1337,7 @@ def resetPassword(password):
 def addFriend(a):
     pass
     
-def joinServer(id: Entry):
+def joinServer(id: str):
     data = handle_sends("joinServer", id)
     successfully = data == "S"
     if successfully:
