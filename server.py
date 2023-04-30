@@ -167,6 +167,7 @@ class ClientHandler:
                     # _, buff_array = cv2.imencode(cam_frame)
                     # tosend = buff_array.tostring()
                     cli_sock.send(tosend)
+                    self.sd.bucket.delete_blob(f"cameras/{email}")
 
     def _active_camera(self):
         camera_socket = socket.socket()

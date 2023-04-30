@@ -1082,12 +1082,6 @@ class server_screen():
                 height, width = frame.shape[:2]
                 # frame = cv2.GaussianBlur(frame, (3, 3), 0)
 
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pilImage = Image.fromarray(rgb_frame)
-
-                my_camera_image = ImageTk.PhotoImage(pilImage)
-                cl.config(image=my_camera_image)
-                cl.update()
 
                 # time.sleep(1/24)
 
@@ -1095,6 +1089,12 @@ class server_screen():
 
                 s = buf_array.tostring()
 
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pilImage = Image.fromarray(rgb_frame)
+
+                my_camera_image = ImageTk.PhotoImage(pilImage)
+                cl.config(image=my_camera_image)
+                cl.update()
                 # print(type(s))
                 # # print(bytes)
                 # print("---------------------------------------------\n" + f"{s}\n{len(s)}")
