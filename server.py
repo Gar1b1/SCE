@@ -48,6 +48,8 @@ class serverData:
 
     max_in_vc = 9
 
+    email_to_cam_frame_bytes = {}
+
 
 class ClientHandler:
     def __init__(self, sock: socket.socket, sd: serverData):
@@ -158,16 +160,10 @@ class ClientHandler:
         cli_sock, _ = sock.accept()
         while self._in_vc_room:
             try:
-                cam_frame = self.sd.bucket.get_blob(f'cameras/{email}')
+                cam_frame = self.sd.email_to_cam_frame_bytes[email]
+                cli_sock.send(cam_frame)
             except Exception as e:
                 print(e)
-            else:
-                if cam_frame != None:
-                    tosend = cam_frame.download_as_bytes()
-                    # _, buff_array = cv2.imencode(cam_frame)
-                    # tosend = buff_array.tostring()
-                    cli_sock.send(tosend)
-                    self.sd.bucket.delete_blob(f"cameras/{email}")
 
     def _active_camera(self):
         camera_socket = socket.socket()
@@ -185,17 +181,9 @@ class ClientHandler:
             cameraInput = cam_sock.recv(999999999)
             print("HERE!")
             bytes = np.frombuffer(cameraInput, np.uint8)
+
+            self.sd.email_to_cam_frame_bytes[self.email] = bytes
             
-            image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
-            rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            pilImage = Image.fromarray(rgb_frame)
-            file_name = f"tempImages/{self.email}.png"
-            pilImage.save(file_name)
-            blob = self.sd.bucket.blob("cameras/"+self.email)
-            try:
-                blob.upload_from_filename(file_name)
-            except:
-                pass
             # pilImage.`s`how()
             # cv2.imshow("a",image)
             # self._send_my_camera_to_vc(cameraInput)
