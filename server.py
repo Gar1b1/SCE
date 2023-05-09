@@ -307,6 +307,8 @@ class ClientHandler:
         self.sd.db.collection('servers').document(serverID).set(data)
         mainRoomData = {"name": "mainRoom", "type": "text", "messages": []}
         self.sd.db.collection('servers').document(serverID).collection('rooms').document("mainRoom").set(mainRoomData)
+        mainRoomData = {"name": "mainVoiceRoom", "type": "voiceChat", "members": []}
+        self.sd.db.collection('servers').document(serverID).collection('rooms').document("mainVoiceRoom").set(mainRoomData)
         return serverID
 
     def _login(self, email: str, password: str) -> bool:

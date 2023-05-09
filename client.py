@@ -32,12 +32,11 @@ global isUser, current_server, toRemember
 #connection
 ip = "127.0.0.1"
 port = 3339
-global sock, cam_sock
+global sock
 
 # cam_port = 1000
 # cam_sock.connect((ip, port))
 # define a video capture object
-vid = cv2.VideoCapture(0)
 
 
 class ScreenManager():
@@ -965,19 +964,19 @@ class server_screen():
             pass
 
     def toggle_camera_mode(self):
-        global cam_sock
         self.to_use_camera = not self.to_use_camera
+        print(f"{self.to_use_camera=}")
         if self.to_use_camera:
             d = handle_sends("active camera").split("|")
             if d[0] == "S":
-                cam_sock = socket.socket()
+                self.vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                self.vid.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+                self.cam_sock = socket.socket()
                 cam_port = int(d[1])
                 print(f"{cam_port=}")
-                cam_sock.connect((ip, cam_port))
+                self.cam_sock.connect((ip, cam_port))
                 send_camera_thread = Thread(target=self.sendMyCamera ,args=())
                 send_camera_thread.start()
-        else:
-            cam_sock.close()
 
     def recv_camera_data(self, port, n):
         r = math.floor(n % 3)
@@ -1065,8 +1064,8 @@ class server_screen():
         cl = Label(self.messagesCanvas)
         cl.place(x=self.start_pos[0], y=self.start_pos[1])
         while self.to_use_camera:
-            if vid.isOpened():
-                ret, frame = vid.read()
+            if self.vid.isOpened():
+                ret, frame = self.vid.read()
                 maxWidth =200
                 maxHeight = 200
                 height, width = frame.shape[:2]
@@ -1099,7 +1098,10 @@ class server_screen():
                 # # print(bytes)
                 # print("---------------------------------------------\n" + f"{s}\n{len(s)}")
                 # print(f"{width=} {height=}")
-                cam_sock.send(s)
+                self.cam_sock.send(s)
+        self.vid.release()
+        self.cam_sock.close()
+        
 
     def load_member_camera(self,line: int, row: int):
         pass
