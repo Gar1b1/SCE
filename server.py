@@ -1,5 +1,5 @@
 import contextvars
-import socket, firebase_admin, random, string, pyperclip as cb
+import socket, firebase_admin, random, string
 import time, hashlib, re, json
 from threading import Thread
 from datetime import datetime
@@ -10,14 +10,8 @@ from hashlib import md5
 from email.message import EmailMessage
 import ssl, smtplib
 
-import cv2, numpy as np
-from PIL import Image
+import numpy as np
 
-from google.protobuf import timestamp_pb2
-import google.api_core.datetime_helpers as dateTimeHelper
-
-from datetime import datetime
-import dateutil
 
 class serverData:    
     #email sender
@@ -72,6 +66,7 @@ class ClientHandler:
         self._handle_messages(data)
     
     def _handle_messages(self, data: str):
+        print(f"{data=}")
         try:
             if "&" in data:
                 s_data = data.split('&')
@@ -170,7 +165,7 @@ class ClientHandler:
         camera_socket.bind((self.sd.server_ip, 0))
         my_camera_port = camera_socket.getsockname()[1]
         camera_socket.listen(1)
-        print(f"{my_camera_port=}")
+        # print(f"{my_camera_port=}")
         self.myCameraThread = Thread(target=self._self_camera_handler, args=(camera_socket,))
         self.myCameraThread.start()
         return f"S|{my_camera_port}"
@@ -187,6 +182,8 @@ class ClientHandler:
             # pilImage.`s`how()
             # cv2.imshow("a",image)
             # self._send_my_camera_to_vc(cameraInput)
+            print(cameraInput)
+        
 
     def _set_vc_members(self):
         self.current_room = self.sd.db.collection("servers").document("iZzcJJVbsytpw3F").collection("rooms").document("mainVoiceChat")
@@ -386,7 +383,6 @@ class ClientHandler:
         em["To"] = reciver
         em["Subject"] = subject
         em.set_content(message)
-        print('here2')
         context = ssl.create_default_context()
 
         try:
@@ -419,9 +415,9 @@ class ClientHandler:
     def _get_participants(self):
         try:
             ids = self.current_server.get().to_dict()["membersID"]
-            print(ids)
+            # print(ids)
             membersUsernames = [self._load_username(id) for id in ids ]
-            print(f"{membersUsernames=}")
+            # print(f"{membersUsernames=}")
 
             myEmail = self.user.get().to_dict()["email"]
             dictServer = self.current_server.get().to_dict()

@@ -1,12 +1,12 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
-import re, socket, platform, time, json
+import socket, json
 from PIL import Image, ImageTk
 from threading import Thread
 from cryptography.fernet import Fernet
 import ctypes, os
-from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
+# from windows_toasts import WindowsToaster, ToastDisplayImage, ToastImageAndText1
 import random, string, math, pyperclip, cv2
 import numpy as np
 
@@ -20,7 +20,7 @@ cipher = Fernet(key)
 fkey.close()
 
 # notification
-winToaster = WindowsToaster("SCE")
+# winToaster = WindowsToaster("SCE")
 msgbox = messagebox
 
 # graphic
@@ -41,6 +41,14 @@ global sock
 
 class ScreenManager():
     def __init__(self, window: Tk, current_res: str):
+        """
+        This function initializes various variables and loads images for a GUI window.
+        
+        :param window: The Tkinter window object that the code is running in
+        :type window: Tk
+        :param current_res: The current screen resolution of the user's device
+        :type current_res: str
+        """
         
         self.max_camera_width = 250
         self.max_camera_height = 250
@@ -87,6 +95,10 @@ class ScreenManager():
     #     return not (self.window.winfo_width() == self.winWidth and self.window.winfo_height() == self.winHeight)
     
     def resize_screen(self):
+        """
+        This function resizes various images and adjusts font sizes based on the size of the window in a
+        GUI application.
+        """
         self.window.update()
         self.winWidth = self.window.winfo_width()
         self.winHeight = self.window.winfo_height()
@@ -250,17 +262,60 @@ class ScreenManager():
 
         
     def _get_new_size(self, originalSize: tuple, newWidth: int):
+        """
+        This function calculates the new height of an image based on its original size and a new width.
+        
+        :param originalSize: A tuple containing the original size of an image in the format (width,
+        height)
+        :type originalSize: tuple
+        :param newWidth: The desired new width of the image
+        :type newWidth: int
+        :return: A tuple containing the new width and height of an image after resizing. The new width
+        is specified by the `newWidth` parameter, while the new height is calculated based on the
+        original size of the image (`originalSize`) and the ratio of the new width to the original
+        width.
+        """
         return (newWidth, int(originalSize[1] * newWidth/originalSize[0]))
 
 
     def setTitleLowestY(self, titleLowestY: int):
+        """
+        This function sets the value of the "titleLowestY" attribute in an object to the input integer
+        value.
+        
+        :param titleLowestY: titleLowestY is a parameter of type integer that represents the lowest
+        Y-coordinate of the title in a graphical user interface. This method sets the value of the
+        instance variable "titleLowestY" to the value passed as the parameter
+        :type titleLowestY: int
+        """
         self.titleLowestY = titleLowestY
 
     def setCurrentRes(self, res: str):
+        """
+        This function sets the current resolution to a given value.
+        
+        :param res: The parameter "res" is a string that represents the current resolution. It is being
+        passed as an argument to the method "setCurrentRes" which sets the value of the instance
+        variable "currentRes" to the value of "res"
+        :type res: str
+        """
         self.currentRes = res
 
 
 def getResulations(maxResulation: str):
+    """
+    The function takes a maximum resolution as input and returns a list of possible resolutions based on
+    a predefined dictionary.
+    
+    :param maxResulation: The parameter maxResulation is a string representing the maximum resolution
+    supported by the system. It is expected to be in the format "widthxheight", where width and height
+    are integers representing the maximum width and height of the screen
+    :type maxResulation: str
+    :return: a list of possible resolutions based on the maximum resolution provided as an argument. The
+    list includes "fullscreen" as the first option, followed by any resolutions that have a width less
+    than or equal to the maximum width provided.
+    """
+
     allRes = {2560: "2560x1440", 1920: "1920x1080", 1280: "1280x720"}
     possiableRes = allRes.copy()
     maxWidht = maxResulation[0]
@@ -276,6 +331,19 @@ def getResulations(maxResulation: str):
         
 
 def register(email: str, password: str, username: str):
+    """
+    The function registers a user by checking the validity of their email, password, and username, and
+    sends a verification code to their email if successful.
+    
+    :param email: A string representing the email address of the user who wants to register
+    :type email: str
+    :param password: a string representing the password entered by the user during registration
+    :type password: str
+    :param username: a string representing the desired username for the user's account
+    :type username: str
+    :return: nothing (i.e., None). It either calls the `notify` function with a message and returns, or
+    it proceeds to send a registration request and load a new screen.
+    """
     if "|" in password or "&" in password:
         notify("register failed", "password is not valid")
         return
@@ -297,6 +365,15 @@ def register(email: str, password: str, username: str):
         notify("register failed", data)
 
 def finish_register(verificationCode: str):
+    """
+    This function finishes the registration process by sending a verification code and loading the home
+    screen if successful.
+    
+    :param verificationCode: The verification code is a string parameter that is used to confirm the
+    user's identity during the registration process. It is typically sent to the user's email or phone
+    number and is required to complete the registration process
+    :type verificationCode: str
+    """
     global isUser
     data = handle_sends("finish register", verificationCode).split("|")
     successfully = data == "S"
@@ -307,6 +384,19 @@ def finish_register(verificationCode: str):
 
 
 def login(email: str, password: str):
+    """
+    The function "login" handles user login attempts, checks for invalid characters in the email and
+    password, sends login information to a server, loads the home screen if successful, and saves the
+    user's email and password if the "toRemember" flag is set.
+    
+    :param email: A string representing the user's email address
+    :type email: str
+    :param password: The password parameter is a string that represents the user's password input for
+    the login function
+    :type password: str
+    :return: The function does not return anything explicitly, but it may return None implicitly if the
+    conditions in the if statement are not met.
+    """
     global toRemember
     global isUser
     if "|" in password or "&" in password or "|" in email or "&" in email:
@@ -362,6 +452,13 @@ def notify(title1: str, message1: str):
     
 
 def handle_sends(*arguments):
+    """
+    This function takes in multiple arguments, joins them with a "|" separator, encrypts the resulting
+    string using a cipher, sends the encrypted message over a socket, and returns a decrypted message.
+    :return: The code is incomplete and does not provide enough information to determine what is being
+    returned by the `handle_sends` function. The last line of the function is calling a
+    `decrypt_message` function, but it is not shown in the provided code.
+    """
     toSend ="|".join(arguments) + "&"
     print(f"{toSend=}")
     encrypted_message = cipher.encrypt(toSend.encode())
@@ -370,9 +467,24 @@ def handle_sends(*arguments):
     return decrypt_message()
 
 def decrypt_message():
+    """
+    This function decrypts a message using a cipher and returns the decoded message.
+    :return: The function `decrypt_message()` is returning the decrypted message obtained by decrypting
+    the result of the `waitToConfirm()` function using the `decrypt()` method of the `cipher` object.
+    The decrypted message is then decoded using the `decode()` method and returned.
+    """
     return cipher.decrypt(waitToConfim()).decode()
 
 def waitToConfim():
+    """
+    This function receives a message through a socket connection and recursively concatenates it until
+    the end of the message is confirmed.
+    :return: The function is recursively calling itself until it receives a message that ends with a
+    tilde (~) character. Once it receives such a message, it extracts the message content, removes any
+    backticks (`) or forward slashes (/) that may be present at the beginning or end of the message, and
+    returns the cleaned message content. If the message does not end with a tilde character or if there
+    is
+    """
     message = sock.recv(100000)
     print(message)
     isFirst = message[:1].decode() == "`"
@@ -424,25 +536,45 @@ def waitToConfim():
 
 
 def clearScreen():
+    """
+    The function clears all widgets from a tkinter window.
+    """
     for widget in screen_manager.window.winfo_children():
         widget.destroy()
 
 def show_password(passwordEntry):
+    """
+    This function toggles the visibility of a password entry field in a GUI between showing the actual
+    password and showing asterisks.
+    
+    :param passwordEntry: The parameter `passwordEntry` is a reference to a tkinter Entry widget that is
+    used to input a password. The function `show_password` toggles the visibility of the password
+    characters in the widget by changing the `show` attribute of the widget. If the `show` attribute is
+    set to `
+    """
     if passwordEntry.cget('show') == '*':
         passwordEntry.config(show='')
     else:
         passwordEntry.config(show='*')
 
 def loadServer(server: str):
+    """
+    This function loads a server and displays a loading screen.
+    
+    :param server: The parameter "server" is a string that represents the name or address of the server
+    that needs to be loaded
+    :type server: str
+    """
     global current_server
     current_server = server
     load_screen("server")
     # dataOfMessages = handle_sends("loadServer", server)
 
-def temp(a):
-    return a
-
 def home_sceen():
+    """
+    This function creates the home screen of an application with buttons for direct messages, joining
+    servers, and displaying a list of available servers.
+    """
     global toRemember
     dmY = int(screen_manager.winHeight/6.5)
     serversY = int(screen_manager.winHeight/3.5)
@@ -473,6 +605,14 @@ def home_sceen():
     screen_manager.window.update()
 
 def login_register_screens(screen: str):
+    """
+    This function creates the login and registration screens for a GUI application and includes
+    functionality for remembering user login information.
+    
+    :param screen: The parameter "screen" is a string that specifies which screen to display - either
+    the login screen or the register screen
+    :type screen: str
+    """
     global toRemember
     screen_manager.window.update()
 
@@ -567,10 +707,17 @@ def login_register_screens(screen: str):
                 login(cipher.decrypt(encryptedEmail).decode(), cipher.decrypt(encryptedPassword).decode())
 
 def toggleToRemember():
+    """
+    The function toggles the value of a global variable called "toRemember".
+    """
     global toRemember
     toRemember = not toRemember
 
 def settings_screen():
+    """
+    This function creates a settings screen with options for changing the screen resolution and logging
+    out or changing user data if the user is logged in.
+    """
     global resulations, isUser
 
     LabelX = int(screen_manager.winWidth/10)
@@ -599,6 +746,10 @@ def settings_screen():
     # resulation.place(x=0, y=0)
     
 def logout_user():
+    """
+    The function logs out the user by setting a global variable to False, sending a logout request to a
+    server, deleting a user file, and loading the login screen.
+    """
     global isUser, homeButton
     isUser = False
     successfully = handle_sends("logout").split("|")[0] == "S"
@@ -611,6 +762,16 @@ def logout_user():
         print("error")
 
 def change_screen_resulation(screen: str, res: str):
+    """
+    This function changes the screen resolution and loads a specified screen.
+    
+    :param screen: The name or identifier of the screen or window that needs to have its resolution
+    changed
+    :type screen: str
+    :param res: The resolution to set the screen to. It can be a string representing a specific
+    resolution (e.g. "1920x1080") or the string "fullscreen" to set the screen to full screen mode
+    :type res: str
+    """
     screen_manager.setCurrentRes(res)
 
     if res == "fullscreen":
@@ -623,6 +784,15 @@ def change_screen_resulation(screen: str, res: str):
     load_screen(screen)
 
 def load_screen(screen: str):
+    """
+    The function loads a screen and calls other functions based on the screen type.
+    
+    :param screen: The parameter "screen" is a string that represents the name of the screen to be
+    loaded. The function "load_screen" takes this parameter and uses it to load the corresponding screen
+    on the user interface. If the screen is "Register" or "login", it calls the function
+    "login_register_s
+    :type screen: str
+    """
     clearScreen()
 
     screen_manager.window.update()
@@ -656,40 +826,49 @@ def load_screen(screen: str):
             defualt_screen(screen)
 
 def forgot_password_screen():
-    email_y = int(screen_manager.window_height / 3.75)
-    labels_x = int((screen_manager.window_width - screen_manager.main_entry_width) / 2)
+    email_y = int(screen_manager.winHeight / 3.75)
+    labels_x = int(screen_manager.winWidth / 4)
 
-    email_entry = Entry(screen_manager.window, bg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"))
-    email_entry.place(x=labels_x, y=email_y, width=screen_manager.main_entry_width)
+    email_entry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Arial", screen_manager.appTextFontSize, "bold"))
+    email_entry.place(x=labels_x, y=email_y, width=screen_manager.mainEntrysWidth)
     email_entry.update()
 
-    email_label = Label(screen_manager.window, bg=screen_manager.background_color, fg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"), text="Email:")
-    email_label.place(x=labels_x, y=email_entry.winfo_y() - (screen_manager.window_height / 20))
+    email_label = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Arial", screen_manager.appTextFontSize, "bold"), text="Email:")
+    email_label.place(x=labels_x, y=email_entry.winfo_y() - (screen_manager.winWidth / 20))
     email_label.update()
 
-    send_y = email_entry.winfo_y() + email_entry.winfo_height() + int(screen_manager.window_height / 25)
-    send_button = Button(screen_manager.window, image=screen_manager.send_button_image, bd=0, highlightthickness=0,
-                activebackground=screen_manager.background_color, bg=screen_manager.background_color, command=lambda: sendForgotPasswordEmail(email_entry.get()))
-    send_button.place(x=int((screen_manager.window_width - screen_manager.send_button_image.size[0]) / 2), y=send_y)
+    send_y = email_entry.winfo_y() + email_entry.winfo_height() + int(screen_manager.winHeight / 25)
+    send_button = Button(screen_manager.window, image=screen_manager.sendBTNImage, bd=0, highlightthickness=0,
+                activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: sendForgotPasswordEmail(email_entry.get()))
+    send_button.place(x=int((screen_manager.winWidth - screen_manager.sendImage.size[0]) / 2), y=send_y)
     send_button.update()
 
-    reset_code_y = send_button.winfo_y() + send_button.winfo_height() + int(screen_manager.window_height / 15)
+    reset_code_y = send_button.winfo_y() + send_button.winfo_height() + int(screen_manager.winHeight / 15)
 
-    reset_code_label = Label(screen_manager.window, bg=screen_manager.background_color, fg=screen_manager.second_color, font=("Arial", screen_manager.app_text_font_size, "bold"),
+    reset_code_label = Label(screen_manager.window, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Arial", screen_manager.appTextFontSize, "bold"),
                             text="Verification Code:")
     reset_code_label.place(x=labels_x, y=reset_code_y)
     reset_code_label.update()
 
-    reset_code_entry = Entry(screen_manager.window, bg=screen_manager.second_color, font=("Arial", int(screen_manager.app_text_font_size), "bold"))
-    reset_code_entry.place(x=labels_x, y=reset_code_label.winfo_y() + reset_code_label.winfo_height() + int(screen_manager.window_height / 100), width=screen_manager.main_entry_width)
+    reset_code_entry = Entry(screen_manager.window, bg=screen_manager.secondColor, font=("Arial", int(screen_manager.appTextFontSize), "bold"))
+    reset_code_entry.place(x=labels_x, y=reset_code_label.winfo_y() + reset_code_label.winfo_height() + int(screen_manager.winHeight / 100), width=screen_manager.mainEntrysWidth)
     reset_code_entry.update()
 
-    submit_button = Button(screen_manager.window, image=screen_manager.verify_button_image, bd=0, highlightthickness=0,
-                activebackground=screen_manager.background_color, bg=screen_manager.background_color, comman=lambda: verifyEmail(reset_code_entry.get()))
-    submit_button.place(x=send_button.winfo_x(), y=reset_code_entry.winfo_y() + reset_code_entry.winfo_height() + int(screen_manager.window_height / 25))
+    submit_button = Button(screen_manager.window, image=screen_manager.verifyBTNImage, bd=0, highlightthickness=0,
+                activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, comman=lambda: verifyEmail(reset_code_entry.get()))
+    submit_button.place(x=send_button.winfo_x(), y=reset_code_entry.winfo_y() + reset_code_entry.winfo_height() + int(screen_manager.winHeight / 25))
 
 
 def sendForgotPasswordEmail(email: str):
+    """
+    The function takes an email address as input and is likely used to send a forgot password email to
+    the user associated with that email.
+    
+    :param email: The email parameter is a string that represents the email address of the user who has
+    forgotten their password. This email will be used to send a password reset link or instructions on
+    how to reset their password
+    :type email: str
+    """
     d = handle_sends("send verification", email)
     s = d == "S"
     if s:
@@ -698,6 +877,14 @@ def sendForgotPasswordEmail(email: str):
         notify("email went wrong", "email went wrong, try again late")
 
 def verifyEmail(verficationCode):
+    """
+    The function "verifyEmail" takes in a verification code as a parameter.
+    
+    :param verficationCode: The verification code is a string of characters or numbers that is used to
+    confirm the validity of an email address. It is usually sent to the email address being verified and
+    the user must enter it into a form or click on a link to confirm that they own the email address.
+    The purpose of this function
+    """
 
     data = handle_sends("verify email", verficationCode).split('|')
     successfully = data[0] == "S"
@@ -711,17 +898,18 @@ class server_screen():
     def __init__(self):
         self.isMessages = False
         self.maxMembersInLine = 3
-        self.serverScreen()
         self.ot_widgets = []
         self.start_pos = (350, 100)
         self.max_in_vc = 9
         self.margin = 100
-        
+        self.serverScreen()
 
     def serverScreen(self):
         self.current_server = current_server
-        shareButton = Button(screen_manager.window, image=screen_manager.shareBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: self.copy_server_id(self.current_server))
-        shareButton.place(x=screen_manager.winWidth - screen_manager.shareImage.size[0], y = screen_manager.winHeight - screen_manager.settingsImage.size[1] - screen_manager.shareImage.size[1])
+        shareButton = Button(screen_manager.window, image=screen_manager.shareBTNImage, bd=0, highlightthickness=0, activebackground=screen_manager.backgroundColor,
+                             bg=screen_manager.backgroundColor, command=lambda: self.copy_server_id(self.current_server))
+        shareButton.place(x=screen_manager.winWidth - screen_manager.shareImage.size[0], y = screen_manager.winHeight -
+                          screen_manager.settingsImage.size[1] - screen_manager.shareImage.size[1])
         # clearScreen()
         self.frameYPos = max(screen_manager.titleLowestY, screen_manager.homeImage.size[1])
         # frame.pack(side=LEFT, fill=Y, expand=True)
