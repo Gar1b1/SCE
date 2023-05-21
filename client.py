@@ -83,9 +83,11 @@ class ScreenManager():
         self.shareOriginImage = Image.open(f"{self.imgPath}shareButton.png")
         self.cameraOriginImage = Image.open(f"{self.imgPath}camera.png")
         self.microphoneOriginImage = Image.open(f"{self.imgPath}microphone.png")
+        self.hangupOriginImage = Image.open(f"{self.imgPath}hangup.png")
 
         user32 = ctypes.windll.user32
         self.maxResulation = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
 
         self.current_res = current_res
 
@@ -259,6 +261,10 @@ class ScreenManager():
         originalSize = self.microphoneOriginImage.size
         self.microphoneImage = self.microphoneOriginImage.resize((self._get_new_size(originalSize, newWidth)))
         self.microphoneBTNImage = ImageTk.PhotoImage(self.microphoneImage)
+
+        originalSize = self.hangupOriginImage.size
+        self.hangupImage = self.hangupOriginImage.resize((self._get_new_size(originalSize, newWidth)))
+        self.hangupBTNImage = ImageTk.PhotoImage(self.hangupImage)
 
         
     def _get_new_size(self, originalSize: tuple, newWidth: int):
@@ -1150,6 +1156,17 @@ class server_screen():
                 ot_widget.destroy()
         except:
             pass
+        
+    def hangup(self):
+        d = handle_sends("hangup")
+        if d[0] == "S":
+            for widget in self.messagesCanvas.winfo_children():
+                if not isinstance(widget, Frame) and not isinstance(widget, Scrollbar):
+                    widget.destroy()
+            if self.to_use_camera:
+                self.toggle_camera_mode()
+                
+        
 
     def toggle_camera_mode(self):
         self.to_use_camera = not self.to_use_camera
@@ -1165,6 +1182,9 @@ class server_screen():
                 self.cam_sock.connect((ip, cam_port))
                 send_camera_thread = Thread(target=self.sendMyCamera ,args=())
                 send_camera_thread.start()
+        else: 
+            self.vid.release()
+            self.cam_sock.close()
 
     def recv_camera_data(self, port, n):
         r = math.floor(n % 3)
@@ -1224,6 +1244,10 @@ class server_screen():
             camera_button = Button(self.messagesCanvas, image=screen_manager.cameraBTNImage, bg=screen_manager.thirdColor, command=self.toggle_camera_mode)
             camera_button.place(x=self.messagesCanvas.winfo_width()/2 - screen_manager.cameraImage.size[0]/2, y=self.messagesCanvas.winfo_height() - screen_manager.cameraImage.size[1])
             self.ot_widgets.append(camera_button)
+            camera_button.update()
+            hangup_button = Button(self.messagesCanvas, image=screen_manager.hangupBTNImage, bg=screen_manager.thirdColor, command=self.hangup)
+            hangup_button.place(x=camera_button.winfo_x() + camera_button.winfo_width(), y=self.messagesCanvas.winfo_height() - screen_manager.hangupImage.size[1])
+
 
             for i, port in enumerate(ports):
                 i += 1
@@ -1286,9 +1310,12 @@ class server_screen():
                 # # print(bytes)
                 # print("---------------------------------------------\n" + f"{s}\n{len(s)}")
                 # print(f"{width=} {height=}")
+
+                length = len(s)
+                length = str(length).zfill(10) + "|"
+                self.cam_sock.send(length.encode())
                 self.cam_sock.send(s)
-        self.vid.release()
-        self.cam_sock.close()
+
         
 
     def load_member_camera(self,line: int, row: int):

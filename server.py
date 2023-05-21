@@ -66,13 +66,11 @@ class ClientHandler:
         self._handle_messages(data)
     
     def _handle_messages(self, data: str):
-        print(f"{data=}")
         try:
             if "&" in data:
                 s_data = data.split('&')
                 data = s_data[0]
                 s_data = data.split('|')
-                print(f"{s_data=}")
                 self._handle_requests(s_data)
             else:
                 self._handle_sends("error", "message received unclearly")
@@ -121,8 +119,16 @@ class ClientHandler:
                 self._handle_sends(data[0], self._add_message(data[1]))
             case "active camera":
                 self._handle_sends(data[0], self._active_camera())
+            case "hangup":
+                self._handle_sends(data[0], self.hangup())
             case "exit":
                 self.torun = False
+
+    def hangup(self):
+        self.current_room.update({u'members': firestore.ArrayRemove([self.email])})
+        self.current_room = None
+        return "S"
+        
 
     def _load_voice_room(self, room):
         try:
@@ -133,7 +139,7 @@ class ClientHandler:
             ports = "*".join(ports)
             return f"S|{ports}"
         except Exception as e:
-            print(e)
+            print("error 2" + e)
             return "F"
     
     def _send_all_cams(self):
@@ -150,7 +156,6 @@ class ClientHandler:
         return ports
     
     def _send_member_cam(self, email: str, sock: socket.socket):
-        print("hello world")
         sock.listen(1)
         cli_sock, _ = sock.accept()
         while self._in_vc_room:
@@ -158,14 +163,14 @@ class ClientHandler:
                 cam_frame = self.sd.email_to_cam_frame_bytes[email]
                 cli_sock.send(cam_frame)
             except Exception as e:
-                print(e)
+                # print("Error 1" + e)
+                pass
 
     def _active_camera(self):
         camera_socket = socket.socket()
         camera_socket.bind((self.sd.server_ip, 0))
         my_camera_port = camera_socket.getsockname()[1]
         camera_socket.listen(1)
-        # print(f"{my_camera_port=}")
         self.myCameraThread = Thread(target=self._self_camera_handler, args=(camera_socket,))
         self.myCameraThread.start()
         return f"S|{my_camera_port}"
@@ -173,8 +178,12 @@ class ClientHandler:
     def _self_camera_handler(self, camera_server_socket: socket.socket):
         cam_sock, client_address = camera_server_socket.accept()
         while True:
-            cameraInput = cam_sock.recv(999999999)
-            print("HERE!")
+            length = cam_sock.recv(11)
+            print(length)
+            length = int(length[:-1])
+            data = b''
+            while len(data) < length:
+                cameraInput = cam_sock.recv(length - len(data))
             bytes = np.frombuffer(cameraInput, np.uint8)
 
             self.sd.email_to_cam_frame_bytes[self.email] = bytes
@@ -182,7 +191,6 @@ class ClientHandler:
             # pilImage.`s`how()
             # cv2.imshow("a",image)
             # self._send_my_camera_to_vc(cameraInput)
-            print(cameraInput)
         
 
     def _set_vc_members(self):
@@ -213,24 +221,18 @@ class ClientHandler:
         else:
             textRooms = []
             voiceRooms = []
-            print("here!")
             dictRooms = server.collection("rooms").get()
-            print(f"{dictRooms=}")
             for room in dictRooms:
-                # print(room.to_dict()["name"])
                 # room = room.to_dict()
-                print("here!")
                 room = room.to_dict()
                 if room["type"] == "text":
                     textRooms.append(room["name"])
                 else:
                     voiceRooms.append(room["name"])
-            print(textRooms)
             self.current_server = server
             return f"S|{'*'.join(textRooms)}|{'*'.join(voiceRooms)}"
 
     def _verify_email(self, code):
-        print(code, self.verifyCode)
         return "S" if code == self.verifyCode == code else "wrong code"
 
     def _send_verification_email(self, reciver):
@@ -242,22 +244,17 @@ class ClientHandler:
         return self._send_email(reciver, subject, message)
 
     def _change_username(self, new_username):
-        print(new_username)
         if not self.user.get().exists:
             return "user is not exists"
         self.user.update({u'username': new_username})
         return "S"
     
     def _change_password(self, password):
-        print(password)
         if not self.user.get().exists:
             return "user is not exists"
-        print(password)
         validate = self._check_is_password_valid(password)
         if not validate[0] ==  True:
-            print(f"{validate=}")
             return f"password is not valid|{validate[1]}"
-        print("r u ok?")
         password = hashlib.md5(password.encode()).hexdigest()
         self.user.update({"password": password})
         return "S"
@@ -273,9 +270,7 @@ class ClientHandler:
         
     
     def _get_friends(self):
-        print("here??????????????????????????????????")
         if self.user != None:
-            # print(self.user.get().to_dict()["friends"])
             friendsID = self.user.get().to_dict()["friends"]
             friendsDict = {}
             for friendID in friendsID:
@@ -313,10 +308,8 @@ class ClientHandler:
         user2 = user.get()
         if user2.exists:
             userDict = user2.to_dict()
-            print(userDict)
             password = hashlib.md5(password.encode()).hexdigest()
             if userDict['password'] == password:
-                print(userDict)
                 self.user = user
                 self.email = email
                 self.sd.idToSocket[email] = self.sock
@@ -333,13 +326,11 @@ class ClientHandler:
             return "email already exists"
         validate = self._check_is_password_valid(password)
         if not validate[0]:
-            print(f"{validate=}")
             return f"password is not valid|{validate[1]}"
         if not self._check_is_email_valid(email):
             return f"email is not valid"
         if self._approve_email(email) == "email went wrong":
             return "email went wrong, please try again"
-        print("here please please please work")
         self.email = email
         self.password = password
         self.username = username
@@ -348,21 +339,17 @@ class ClientHandler:
     
     def _finish_register(self, verificationCode):
         if self.email != None and self.password != None and self.username != None and self.verifyCode != None:
-            print(f"{self.email}, {self.password},  {self.username}, {self.verifyCode}")
             if self.verifyCode == verificationCode:
-                print("here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 password = hashlib.md5(self.password.encode()).hexdigest()
                 email = self.email
                 username = self.username
                 data = {'email': email, 'username': username, 'password': password, 'friends': [], 'servers': []}
                 self.sd.db.collection('users').document(email).set(data)
                 self.user = self.sd.db.collection('users').document(email)
-                print("here1")
                 self.email = None
                 self.password = None
                 self.username = None
                 self.verifyCode = None
-                print("here2")
                 return "S"
             else:
                 return "wrong verification code"
@@ -373,7 +360,6 @@ class ClientHandler:
         subject = "register confirmation email"
         verifyCode = (''.join(random.choices(string.ascii_lowercase + string.digits, k=10)))
         self.verifyCode = verifyCode
-        print('here1')
         message = f"your verify code is: {verifyCode}"
         return self._send_email(reciver, subject, message)
     
@@ -388,9 +374,7 @@ class ClientHandler:
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as smtp:
                 smtp.login(self.sd.email_sender, self.sd.email_password)
-                print('logedin')
                 smtp.sendmail(self.sd.email_sender, reciver, em.as_string())
-                print(f"email sent to: {reciver}")
         except Exception as e:
             print(e)
             return "F"
@@ -415,9 +399,7 @@ class ClientHandler:
     def _get_participants(self):
         try:
             ids = self.current_server.get().to_dict()["membersID"]
-            # print(ids)
             membersUsernames = [self._load_username(id) for id in ids ]
-            # print(f"{membersUsernames=}")
 
             myEmail = self.user.get().to_dict()["email"]
             dictServer = self.current_server.get().to_dict()
@@ -426,7 +408,7 @@ class ClientHandler:
             isOwner = myEmail == dictServer["ownerID"]
             return f"S|{'*'.join(membersUsernames)}|{isAdmin}|{isOwner}"
         except Exception as e:
-            print(e) 
+            print("error 4" + e) 
             return f"F"
 
     def _load_text_room(self, room: str) -> list:
@@ -453,9 +435,6 @@ class ClientHandler:
 
             d_messages.append(json.dumps(message))
             
-
-        print(f"{'*'.join(d_messages)}")
-
         self.current_room = c_room
 
         self._in_vc_room = False
@@ -500,22 +479,16 @@ class ClientHandler:
             return "ERR"
         
     def _handle_sends(self, type: str, *params) -> bool:
-        print("pls work")
-        print(f'{type=} | {params=}')
         if type in ["getServers", "getFriends", "loadServer"]:
             toSend = json.dumps(params[0])
         else:
             toSend = params[0]
 
         maxChunkLength = 99998
-        # print(f"{toSend=}")
         toSend = '`'.encode() + self.sd.cipher.encrypt(toSend.encode())
-        # print(f"{toSend=}")
-        print(f"{len(toSend)=}")
         if len(toSend) > maxChunkLength:
             toSendList = self._split_list_to_chuncks(toSend, maxChunkLength)
 
-            # print(toSendList)
             for toSendItem in toSendList[:-1]:
                 self._send_message(toSendItem + "/".encode())
             toSend = toSendList[-1] 
@@ -531,7 +504,7 @@ class ClientHandler:
         try:
             chunks = [string[i:i+chunkLenght] for i in range(0, len(string), chunkLenght)]
         except Exception as e:
-            print(e)
+            print("error 3" + e)
         return chunks
 
 def handle_client(sock, addr, sd):
@@ -546,7 +519,6 @@ def main():
     i = 0
     while True:
         client_sock, client_address = server_sock.accept()
-        print('connected')
         # send_message(client_sock, "Hello")
         t = Thread(target=handle_client, args=(client_sock, client_address, sd))
         sd.sockets_threads.append(t)
