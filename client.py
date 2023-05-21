@@ -1193,28 +1193,28 @@ class server_screen():
         x_pos = self.start_pos[0] + c * (self.margin + screen_manager.max_camera_width)
         y_pos = self.start_pos[1] + r * (self.margin + screen_manager.max_camera_height)
         print(f"{n=} {c=} {r=} {x_pos=} {y_pos=}")
-        l.place(x=x_pos, y=y_pos)
+        # l.place(x=x_pos, y=y_pos)
 
         sock = socket.socket()
 
         port = int(port)
         sock.connect(("127.0.0.1", port))
         while True:
-            try:
-                frame = sock.recv(999999999)
-                # print(frame)
-                bytes = np.frombuffer(frame, np.uint8)
-                
-                image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
-                rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                pilImage = Image.fromarray(rgb_frame)
-                img = ImageTk.PhotoImage(pilImage)
-                l.config(image=img)
-                l.update()
-                # l = Label(screen_manager.window, image=img, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor)
-                # l.place(x=150, y=150)
-            except:
-                pass
+            length = int(sock.recv(10).decode())
+            print(length)
+            cameraInput = b''
+            while len(cameraInput) < length:
+                cameraInput = sock.recv(length - len(cameraInput))
+            bytes = np.frombuffer(cameraInput, np.uint8)
+
+            image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
+            rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            pilImage = Image.fromarray(rgb_frame)
+            img = ImageTk.PhotoImage(pilImage)
+            l.config(image=img)
+            l.update()
+            # l = Label(screen_manager.window, image=img, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor)
+            l.place(x=0, y=0)
 
     def loadVoiceRoom(self, room: str):
         for widget in self.secMessagesFrame.winfo_children():
@@ -1312,7 +1312,7 @@ class server_screen():
                 # print(f"{width=} {height=}")
 
                 length = len(s)
-                length = str(length).zfill(10) + "|"
+                length = str(length).zfill(10)
                 self.cam_sock.send(length.encode())
                 self.cam_sock.send(s)
 
@@ -1428,14 +1428,21 @@ def DMScreen():
     friends = dict(json.loads(friends))
     friendsButtons = []
     keys = list(friends.keys())
-    for i, frined in enumerate(keys):
-        sb = Button(screen_manager.window, text=friends[frined], bg=screen_manager.backgroundColor, fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"), command=lambda a=frined: loadDMChat(a))
-        sb.pack(anchor=N)
-        sb.update()
-        sb.place(x=lefSideX, y=(friendsY + (int(screen_manager.winHeight/50) + sb.winfo_height()) * i))
-        screen_manager.window.update()
-        friendsButtons.append(sb)
+    friendsY = int(screen_manager.winHeight/3.5)
+    first = True
+    for friend in keys:
+        sb = Button(screen_manager.window, text=friends[friend], bg=screen_manager.backgroundColor,
+                    fg=screen_manager.secondColor, font=("Airal", int(screen_manager.appTextFontSize * 0.8), "bold"),
+                    command=lambda a=friend: loadDMChat(a))
+        y = friendsY
+        if not first:
+            y = friendsButtons[-1].winfo_y() + friendsButtons[-1].winfo_height() + int(screen_manager.winHeight / 100)
+        first = False
 
+        sb.place(x=lefSideX, y=y)
+        sb.update()
+        friendsButtons.append(sb)
+    screen_manager.window.update()
 def loadDMChat(id):
     pass
 
@@ -1514,7 +1521,8 @@ def defualt_screen(screen: str):
 
 
     submitButton = Button(screen_manager.window, image=submitButtonImage, bd=0, highlightthickness=0,
-                              activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor, command=lambda: addFriend(entry.get()))
+                              activebackground=screen_manager.backgroundColor, bg=screen_manager.backgroundColor,
+                            command=lambda: addFriend(entry.get()))
     match screen:
         case "Join Server":
             newButton =  Button(screen_manager.window, image=screen_manager.newServerBTNImage, bd=0, highlightthickness=0,
@@ -1551,9 +1559,13 @@ def resetPassword(password: str):
                 else:
                     notify("password didnt changed", data)
 
-def addFriend(a):
-    pass
-    
+def addFriend(id):
+    d = handle_sends("addFriend", id)
+    if d[0] == "S":
+        notify("friend added", "friend added successfully")
+    else:
+        notify("adding friend failed", "your friends added failed")
+
 def joinServer(id: str):
     data = handle_sends("joinServer", id)
     successfully = data == "S"

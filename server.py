@@ -120,11 +120,25 @@ class ClientHandler:
             case "active camera":
                 self._handle_sends(data[0], self._active_camera())
             case "hangup":
-                self._handle_sends(data[0], self.hangup())
+                self._handle_sends(data[0], self._hangup())
+            case "addFriend":
+                self._handle_sends(data[0], self._add_friend(data[1]))
             case "exit":
                 self.torun = False
 
-    def hangup(self):
+    def _add_friend(self, nf_id):
+        if nf_id == self.email:
+            return "F"
+        user = self.sd.db.collection('users').document(nf_id)
+        if not user.get().exists:
+            return "F"
+        try:
+            self.user.update({u'friends': firestore.ArrayUnion([nf_id])})
+            user.update({u'friends': firestore.ArrayUnion([self.email])})
+        except:
+            return "F"
+        return "S"
+    def _hangup(self):
         self.current_room.update({u'members': firestore.ArrayRemove([self.email])})
         self.current_room = None
         return "S"
@@ -161,6 +175,8 @@ class ClientHandler:
         while self._in_vc_room:
             try:
                 cam_frame = self.sd.email_to_cam_frame_bytes[email]
+                cam_len = len(cam_frame)
+                cli_sock.send(cam_len.encode())
                 cli_sock.send(cam_frame)
             except Exception as e:
                 # print("Error 1" + e)
@@ -178,12 +194,11 @@ class ClientHandler:
     def _self_camera_handler(self, camera_server_socket: socket.socket):
         cam_sock, client_address = camera_server_socket.accept()
         while True:
-            length = cam_sock.recv(11)
+            length = int(cam_sock.recv(10))
             print(length)
-            length = int(length[:-1])
-            data = b''
-            while len(data) < length:
-                cameraInput = cam_sock.recv(length - len(data))
+            cameraInput = b''
+            while len(cameraInput) < length:
+                cameraInput = cam_sock.recv(length - len(cameraInput))
             bytes = np.frombuffer(cameraInput, np.uint8)
 
             self.sd.email_to_cam_frame_bytes[self.email] = bytes
