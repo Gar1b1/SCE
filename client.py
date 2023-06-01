@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import messagebox
 from tkinter import ttk
-import socket, json
+import socket, json, time
 from PIL import Image, ImageTk
 from threading import Thread
 from cryptography.fernet import Fernet
@@ -1184,37 +1184,45 @@ class server_screen():
                 send_camera_thread.start()
         else: 
             self.vid.release()
+            self.cam_sock.send("C".encode())
             self.cam_sock.close()
 
     def recv_camera_data(self, port, n):
         r = math.floor(n % 3)
         c = math.floor(n / 3)
-        l = Label(self.messagesCanvas)
+        l = Label(self.messagesCanvas, text="HELLO WORLD")
         x_pos = self.start_pos[0] + c * (self.margin + screen_manager.max_camera_width)
         y_pos = self.start_pos[1] + r * (self.margin + screen_manager.max_camera_height)
         print(f"{n=} {c=} {r=} {x_pos=} {y_pos=}")
-        # l.place(x=x_pos, y=y_pos)
+        l.place(x=x_pos, y=y_pos)
 
         sock = socket.socket()
 
         port = int(port)
         sock.connect(("127.0.0.1", port))
         while True:
-            length = int(sock.recv(10).decode())
+            try:
+                d = sock.recv(10).decode()
+                length = int(d)
+            except Exception as e:
+                print(e)
+
             print(length)
             cameraInput = b''
             while len(cameraInput) < length:
                 cameraInput = sock.recv(length - len(cameraInput))
-            bytes = np.frombuffer(cameraInput, np.uint8)
+            bytes = bytearray(cameraInput)
+            print(type(bytes))
+            bytes = np.frombuffer(bytes, np.uint8)
+            frame = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
 
-            image = cv2.imdecode(bytes, cv2.IMREAD_COLOR)
-            rgb_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pilImage = Image.fromarray(rgb_frame)
             img = ImageTk.PhotoImage(pilImage)
             l.config(image=img)
             l.update()
             # l = Label(screen_manager.window, image=img, bg=screen_manager.backgroundColor, fg=screen_manager.secondColor)
-            l.place(x=0, y=0)
 
     def loadVoiceRoom(self, room: str):
         for widget in self.secMessagesFrame.winfo_children():
@@ -1297,9 +1305,9 @@ class server_screen():
                 # time.sleep(1/24)
 
                 is_success, buf_array = cv2.imencode(".png", frame)
-
-                s = buf_array.tostring()
-
+                print(type(buf_array))
+                s = buf_array.tobytes()
+                print(s)
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 pilImage = Image.fromarray(rgb_frame)
 
@@ -1315,6 +1323,7 @@ class server_screen():
                 length = str(length).zfill(10)
                 self.cam_sock.send(length.encode())
                 self.cam_sock.send(s)
+                time.sleep(1/30)
 
         
 

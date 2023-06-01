@@ -174,12 +174,16 @@ class ClientHandler:
         cli_sock, _ = sock.accept()
         while self._in_vc_room:
             try:
+                time.sleep(1/30)
                 cam_frame = self.sd.email_to_cam_frame_bytes[email]
                 cam_len = len(cam_frame)
+                cam_len = str(cam_len).zfill(10)
+                print("CAM LEN IS: " + cam_len)
                 cli_sock.send(cam_len.encode())
                 cli_sock.send(cam_frame)
             except Exception as e:
-                # print("Error 1" + e)
+                
+                print(e)
                 pass
 
     def _active_camera(self):
@@ -194,14 +198,24 @@ class ClientHandler:
     def _self_camera_handler(self, camera_server_socket: socket.socket):
         cam_sock, client_address = camera_server_socket.accept()
         while True:
-            length = int(cam_sock.recv(10))
-            print(length)
-            cameraInput = b''
-            while len(cameraInput) < length:
-                cameraInput = cam_sock.recv(length - len(cameraInput))
-            bytes = np.frombuffer(cameraInput, np.uint8)
+            d = cam_sock.recv(10)
+            if d == "C".encode():
+                camera_server_socket.close()
+                self._in_vc_room = False
+                return
+            try:
+                length = int(d)
 
-            self.sd.email_to_cam_frame_bytes[self.email] = bytes
+                print(length)
+                cameraInput = b''
+                while len(cameraInput) < length:
+                    cameraInput = cam_sock.recv(length - len(cameraInput))
+                # bytes = np.frombuffer(cameraInput, np.uint8)
+
+                self.sd.email_to_cam_frame_bytes[self.email] = cameraInput
+            except:
+                camera_server_socket.close()
+                return
             
             # pilImage.`s`how()
             # cv2.imshow("a",image)
